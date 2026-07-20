@@ -1,0 +1,40 @@
+system_info:
+  - uname
+  - hostname
+  - lsb_release
+  - cat /etc/os-release
+user_check:
+  - whoami
+  - id
+  - w
+network_check:
+  - ifconfig
+  - ip addr
+  - netstat
+  - ss
+process_check:
+  - ps
+  - top
+file_operation:
+  - cat
+  - ls
+  - cp
+  - mv
+permission_change:
+  - chmod
+  - chown
+download:
+  - wget
+  - curl
+  - tftp
+execution:
+  - sh
+  - bash
+  - ./
+persistence_attempt:
+  - crontab
+  - systemctl enable
+  - rc.local
+trace_removal:
+  - rm
+  - history -c

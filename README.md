@@ -1,16 +1,138 @@
 # Cowrie-Honeypot
 
-AWS上で安全に運用する，CowrieベースのSSHハニーポット観測システムの文書リポジトリです．
+AWS Lightsail上でCowrieを安全に運用し、SSHハニーポットのログを収集・正規化・集計するための学習用プロジェクトです。
 
-本プロジェクトの目的は，攻撃機能を提供することではなく，外部から届くSSHブルートフォースやLinux/IoT機器を狙うボットの挙動を，低対話型ハニーポットで受動的に記録し，ログを分析することです．
+このリポジトリは公開リポジトリとして扱います。秘密情報、実IPを含む生ログ、秘密鍵、マルウェア検体、ダウンロード成果物、個人メモはコミットしないでください。
 
-## Documents
+## ドキュメント
 
-- [Project Brief](docs/project-brief.md)
-- [Requirements](docs/requirements.md)
-- [Architecture](docs/architecture.md)
-- [Security](docs/security.md)
-- [Test Plan](docs/test-plan.md)
-- [Development Plan](docs/development-plan.md)
-- [Operations](docs/operations.md)
+- [プロジェクト概要](docs/project-brief.md)
+- [要件定義](docs/requirements.md)
+- [アーキテクチャ](docs/architecture.md)
+- [セキュリティ](docs/security.md)
+- [テスト計画](docs/test-plan.md)
+- [開発計画](docs/development-plan.md)
+- [Codex作業手順](docs/codex-workflow.md)
+- [運用手順](docs/operations.md)
 
+## 構成の考え方
+
+- ローカルではCowrieを外部公開せず、`127.0.0.1:2222` だけで確認します。
+- Lightsailでは管理用OpenSSHを22番以外へ移動し、インターネットからのTCP 22番をCowrieへ割り当てます。
+- Cowrie本体はDocker内部ネットワークに配置し、SSHプロキシコンテナだけがホスト側ポートを受けます。
+- Cowrie本体から外部への通信は遮断します。
+- 生ログはローカルまたはサーバー上に残しますが、Gitには載せません。
+
+## ローカル開発の前提
+
+- Python 3.11以上
+- Docker Desktop
+- PowerShell
+
+Pythonコマンドは必ずプロジェクト直下の仮想環境 `.venv` で実行します。
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -e .[dev]
+```
+
+## ローカルCowrieの起動
+
+Docker Desktopを起動してから、設定確認と起動を行います。
+
+```powershell
+docker compose config
+docker compose up -d
+docker compose ps
+```
+
+Cowrieはローカルホストのみに公開されます。
+
+```powershell
+Test-NetConnection 127.0.0.1 -Port 2222
+```
+
+`TcpTestSucceeded : True` が表示されれば正常です。
+
+## ローカル動作確認
+
+テスト用SSH接続を行い、Cowrieにコマンド入力イベントを記録させます。
+
+```powershell
+.\.venv\Scripts\python scripts\exercise_cowrie_ssh.py --host 127.0.0.1 --port 2222 --username root --password admin --command "uname -a"
+```
+
+ログが出ていることを確認します。
+
+```powershell
+Get-ChildItem logs\cowrie
+```
+
+## ログ集計
+
+CowrieのJSONログから公開用CSVを生成します。
+
+```powershell
+.\.venv\Scripts\python -m cowrie_observer.cli analyze --input logs\cowrie\cowrie.json --output data\public\summary.csv
+Get-Content data\public\summary.csv
+```
+
+公開用CSVでは送信元IPを匿名化し、パスワードは出力しません。ただし生成物は検証用ファイルなので、`data/public/` 配下はGit管理しません。
+
+## 外向き通信制限の確認
+
+Cowrie本体から外部へ通信できないことを確認します。
+
+```powershell
+.\scripts\verify_egress.ps1
+```
+
+`OK: outbound connection was blocked.` が正常です。
+
+## ローカル停止
+
+確認が終わったら、Cowrieを停止します。
+
+```powershell
+docker compose down
+```
+
+## Lightsailへデプロイする場合
+
+詳細手順は [運用手順](docs/operations.md) を確認してください。概要は次の流れです。
+
+1. LightsailでUbuntuインスタンスを作成する。
+2. 静的IPを作成してインスタンスへアタッチする。
+3. Lightsailファイアウォールで管理用SSHとCowrie用22番のルールを分ける。
+4. 管理用OpenSSHを22番以外へ移動し、管理者IPからのみ接続できるようにする。
+5. GitHubからこのリポジトリをcloneする。
+6. Docker EngineとCompose pluginをインストールする。
+7. `.env.lightsail.example` を参考に `.env` を作成する。
+8. `compose.yaml` を使ってCowrieを起動する。
+9. 22番がCowrieへ到達し、管理用OpenSSHが22番で待ち受けていないことを確認する。
+10. 外向き通信制限、ログ永続化、停止・復旧手順を確認する。
+
+Lightsail上の起動コマンドは次の形式です。
+
+```bash
+cp .env.lightsail.example .env
+sudo docker compose config
+sudo docker compose up -d
+./scripts/verify_egress.sh
+```
+
+この操作はインターネットからTCP 22番へ到達できる構成を作るため、必ず [セキュリティ](docs/security.md) と [運用手順](docs/operations.md) を確認してから実行してください。
+
+## Git管理しないもの
+
+次のファイルやディレクトリは公開リポジトリに含めません。
+
+- `.env`
+- `.venv/`
+- `logs/`
+- `data/raw/`
+- `data/normalized/`
+- `data/public/`
+- `data/downloads/`
+- `*.pem`
+- `*.key`
