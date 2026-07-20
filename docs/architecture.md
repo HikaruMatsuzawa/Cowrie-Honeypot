@@ -2,156 +2,126 @@
 
 ## 設計ステータス
 
-- 確定: ローカルPCではCowrieをインターネットへ公開しない．
-- 確定: ローカルではホストのTCP 2222番をCowrieコンテナへ割り当てる．
-- 確定: AWSでは本物のOpenSSHをTCP 22番で公開しない．
-- 確定: AWSではTCP 22番をCowrie観測用SSHとして扱う．
-- 暫定: AWS環境はEC2 1台，Ubuntu，Docker Composeで構成する．
-- 暫定: 管理用OpenSSHはTCP 22222番などへ変更し，環境変数またはデプロイ設定で変更可能とする．
-- 未決: Cowrieコンテナの外向き通信制限に `internal: true` を採用するかどうか．
-- 未決: 外向き通信制限にnftablesとiptablesのどちらを使うか．
-- 未決: AWS Systems Manager Session Managerを復旧手段として採用するか．
+- 確定: ローカル環境ではCowrieをインターネットへ公開しない。
+- 確定: ローカルでは `127.0.0.1:2222` だけをSSH確認用に使う。
+- 確定: LightsailではTCP 22番をCowrie観測用SSHとして扱う。
+- 確定: 管理用OpenSSHはTCP 22番以外へ移動する。
+- 確定: Cowrie本体はDocker内部ネットワークに置く。
+- 確定: ホスト側ポートは `cowrie-ssh-proxy` でCowrieへ中継する。
+- 確定: 生ログはGit管理外とする。
+- 暫定: LightsailのOSはUbuntu LTSとする。
+- 暫定: 管理用OpenSSHのポートは `22222` を例とする。
+- 未決: Lightsailのリージョン、インスタンスサイズ、ディスク容量。
+- 未決: 長期ログバックアップ方式。
+- 未決: 監視通知先。
 
-## ローカル開発環境
-
-ローカルPCではCowrieをインターネットへ公開しない．構成は次のとおりとする．
+## ローカル構成
 
 ```text
 Windows PC
-├─ VS Code
-├─ Codex
-├─ Git
-├─ Docker Desktop
-├─ Docker Compose
-├─ Cowrieコンテナ
-├─ Pythonログ分析プログラム
-└─ pytest
+  |
+  | 127.0.0.1:2222
+  v
+cowrie-ssh-proxy
+  |
+  | Docker internal network
+  v
+Cowrie container:2222
+  |
+  +-- logs/cowrie/      Git管理外
+  +-- data/downloads/   Git管理外
 ```
 
-ローカルでは，ホストのTCP 2222番をCowrieコンテナへ割り当てる．
+ローカルでは `compose.yaml` のみを使用する。
 
-```text
-localhost:2222
-      ↓
-Dockerポート転送
-      ↓
-Cowrieコンテナ:2222
+```powershell
+docker compose up -d
 ```
 
-ローカルテスト時の接続例は次のとおりとする．
-
-```bash
-ssh -p 2222 root@localhost
-```
-
-ローカルでは，ルーターのポート開放やインターネット公開を行わない．
-
-## AWS環境
-
-AWSでは，EC2上にDocker Compose環境を作成する．
-
-```text
-Internet
-   │
-   ├─ TCP 22
-   │     ↓
-   │  EC2ホスト
-   │     ↓
-   │  Dockerポート転送
-   │     ↓
-   │  Cowrieコンテナ:2222
-   │
-   └─ TCP 22222
-          ↓
-       OpenSSH
-          ↑
-     管理者IPのみ
-```
-
-初期バージョンでは，EC2を1台だけ使用する．
-
-```text
-EC2
-├─ Ubuntu
-├─ OpenSSH
-├─ Docker
-├─ Docker Compose
-├─ Cowrie
-├─ JSONログ
-├─ Python分析プログラム
-└─ ログローテーション
-```
-
-## ポート設計
-
-### ローカル
+公開範囲:
 
 | ポート | 用途 | 公開範囲 |
 | --- | --- | --- |
-| TCP 2222 | Cowrie SSH | localhostのみ |
-| TCP 23 | 使用しない | 非公開 |
-| その他 | 使用しない | 非公開 |
+| TCP 2222 | ローカルCowrie確認 | `127.0.0.1` のみ |
+| TCP 22 | 使用しない | 公開しない |
+| TCP 23 | 使用しない | 公開しない |
 
-Docker Composeでは，次の形式を基本とする．
-
-```yaml
-ports:
-  - "127.0.0.1:2222:2222"
-```
-
-ローカルでは `127.0.0.1` へ明示的にバインドし，LAN内の別端末からも接続できないようにする．
-
-ローカルのログ保存先は次のとおりとする．
-
-| ホスト側パス | 用途 | Git管理 |
-| --- | --- | --- |
-| `logs/cowrie/` | Cowrie JSONログ | 管理しない |
-| `data/downloads/` | Cowrieが取得したファイル | 管理しない |
-
-### AWS
-
-| ポート | 用途 | 接続元 |
-| --- | --- | --- |
-| TCP 22 | Cowrie観測用SSH | 0.0.0.0/0 |
-| TCP 22222 | EC2管理用OpenSSH | 管理者のグローバルIP/32 |
-| TCP 23 | Telnet | 初期バージョンでは閉鎖 |
-| その他 | 不使用 | 拒否 |
-
-CowrieのDockerポート転送は次の形式とする．
-
-```yaml
-ports:
-  - "22:2222"
-```
-
-意味は次のとおりである．
+## Lightsail構成
 
 ```text
-インターネットのTCP 22
-        ↓
-EC2ホストのTCP 22
-        ↓
-CowrieコンテナのTCP 2222
+Internet
+  |
+  | TCP 22
+  v
+Lightsail instance
+  |
+  | Docker published port
+  v
+cowrie-ssh-proxy
+  |
+  | Docker internal network
+  v
+Cowrie container:2222
+
+Administrator
+  |
+  | TCP 22222, 管理者IPのみ
+  v
+OpenSSH on Lightsail host
 ```
 
-## 将来の想定ディレクトリ構成
+Lightsailでは `.env.lightsail.example` を `.env` にコピーし、`compose.yaml` を使用する。
 
-次の構成は将来の想定であり，今回の文書整理ではコード，Docker，deploy配下の実ファイルは作成しない．
+```bash
+cp .env.lightsail.example .env
+sudo docker compose up -d
+```
+
+公開範囲:
+
+| ポート | 用途 | 公開範囲 |
+| --- | --- | --- |
+| TCP 22 | Cowrie観測用SSH | 任意のIPv4 |
+| TCP 22222 | 管理用OpenSSH | 管理者IP/32 |
+| TCP 23 | Telnet | 公開しない |
+| TCP 80/443 | Web | 公開しない |
+
+## コンテナ構成
+
+| サービス | 役割 | ホスト公開 |
+| --- | --- | --- |
+| `cowrie` | Cowrie本体、ログ生成 | なし |
+| `cowrie-ssh-proxy` | ホスト側SSHポートからCowrieへ中継 | ローカルまたはLightsail用ポート |
+
+Cowrie本体はDocker内部ネットワークにのみ接続し、外部へ直接通信できない状態を目標とする。
+
+## データ配置
+
+| パス | 用途 | Git管理 |
+| --- | --- | --- |
+| `logs/cowrie/` | Cowrie生ログ | しない |
+| `data/downloads/` | Cowrieが取得したファイル | しない |
+| `data/public/` | 公開用CSVなどの生成物 | しない |
+| `tests/fixtures/` | 合成テストデータ | する |
+| `.env` | 実環境設定 | しない |
+| `.env.example` | 設定テンプレート | する |
+
+## 分析処理
 
 ```text
-cowrie-observer/
-├─ AGENTS.md
-├─ README.md
-├─ compose.yaml
-├─ pyproject.toml
-├─ .env.example
-├─ .gitignore
-├─ config/
-├─ src/
-├─ tests/
-├─ deploy/
-├─ scripts/
-├─ docs/
-├─ data/
-└─ logs/
+Cowrie JSON Lines
+  |
+  v
+parser
+  |
+  v
+normalizer
+  |
+  v
+statistics / command classifier / anonymizer
+  |
+  v
+public CSV
 ```
+
+生ログは上書きしない。公開用CSVを生成するときだけIP匿名化やパスワード除外を適用する。

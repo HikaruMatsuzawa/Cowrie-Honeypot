@@ -2,145 +2,290 @@
 
 ## 対象範囲
 
-この文書は，デプロイ，停止，復旧，監視の手順を整理する．今回の文書整理ではAWSリソース作成，Docker起動，SSH設定変更，ファイアウォール変更は実行しない．
+この文書は、ローカル検証、AWS Lightsailへの手動デプロイ、停止、復旧、監視の手順を定義する。
 
-## デプロイ手順
+CodexはAWSリソース作成、Lightsail設定変更、SSH設定変更、ファイアウォール変更を自動実行しない。AWS上の操作は人間が内容を確認して手動で行う。
 
-### ローカル
+## 設計上の選択
 
-- ローカルではCowrieをインターネットへ公開しない．
-- ホストのTCP 2222番をCowrieコンテナへ割り当てる．
-- Docker Composeでは `127.0.0.1:2222:2222` の形式を基本とする．
-- ルーターのポート開放やインターネット公開を行わない．
-- ローカル設定値は `.env.example` をもとに `.env` を作成して管理する．
-- `.env`，生ログ，取得ファイルはGitへコミットしない．
-- CowrieのJSONログ保存先は `logs/cowrie/` とする．
-- Cowrieが取得したファイルの保存先は `data/downloads/` とする．
+- 確定: ローカル環境ではCowrieをインターネットへ公開しない。
+- 確定: LightsailではTCP 22番をCowrie観測用SSHとして使う。
+- 確定: 管理用OpenSSHはTCP 22番以外へ移動し、管理者IPからのみ許可する。
+- 確定: LightsailへのデプロイはGitHubからcloneしたリポジトリを使う。
+- 確定: 生ログ、`.env`、秘密鍵、AWS認証情報はGitへコミットしない。
+- 暫定: LightsailのOSはUbuntu LTSを想定する。
+- 暫定: 管理用OpenSSHの待ち受けポートは `22222` を例とする。
+- 暫定: Cowrie本体はDocker内部ネットワーク、`cowrie-ssh-proxy` は公開ポート中継用コンテナとする。
+- 未決: Lightsailのインスタンスサイズ、リージョン、ディスク容量、ログ保存期間。
+- 未決: 長期運用時のログバックアップ先。
+- 未決: 監視通知先と通知方法。
 
-ローカル構成確認:
+## ローカル運用
+
+### 起動
 
 ```powershell
 docker compose config
+docker compose up -d
+docker compose ps
 ```
 
-このコマンドは構成の静的確認に使用する．コンテナの起動は行わない．
+正常な結果:
 
-外向き通信制限の確認:
+- `cowrie` と `cowrie-ssh-proxy` が起動している。
+- `cowrie-ssh-proxy` だけが `127.0.0.1:2222` を公開している。
+
+### 疎通確認
+
+```powershell
+Test-NetConnection 127.0.0.1 -Port 2222
+.\.venv\Scripts\python scripts\exercise_cowrie_ssh.py --host 127.0.0.1 --port 2222 --username root --password admin --command "uname -a"
+```
+
+正常な結果:
+
+- `TcpTestSucceeded : True` が表示される。
+- Cowrieのシェル応答が表示される。
+- `logs/cowrie/cowrie.json` に接続、ログイン、コマンド入力イベントが記録される。
+
+### 外向き通信制限確認
 
 ```powershell
 .\scripts\verify_egress.ps1
 ```
 
-この確認は，Cowrieコンテナ起動後に実行する．外部接続が拒否される場合を正常とする．外部接続が成功した場合は，Dockerネットワークまたはファイアウォール設定を見直す．
+正常な結果:
 
-ローカル構成では，Cowrie本体を内部ネットワークに配置し，`cowrie-ssh-proxy` が `127.0.0.1:2222` への接続をCowrieへ中継する．外向き通信確認の対象はCowrie本体とする．AWS向けにはホスト側のnftablesまたはiptablesによる制限も別途検証する．
+```text
+OK: outbound connection was blocked.
+```
 
-### AWS
+### 停止
 
-AWSではEC2上にDocker Compose環境を作成する想定とする．デプロイはGitHub上の公開リポジトリをcloneして行う．CodexはAWS上で自動実行せず，人間が内容を確認して手動実行する．
+```powershell
+docker compose down
+```
 
-想定手順:
+## Lightsailデプロイ前チェック
 
-1. 公開リポジトリに秘密情報，実ログ，実IP，個人情報が含まれていないことを確認する．
-2. EC2構成とSecurity Group設計を確認する．
-3. EC2上でGitHubからリポジトリをcloneする．
-4. `.env.example` などのテンプレートをもとに，EC2上で実値を含む設定ファイルを作成する．
-5. 実値を含む設定ファイルをGitへコミットしない．
-6. 管理用SSHを公開鍵認証にする．
-7. 管理用SSHの接続元を管理者のグローバルIP/32へ制限する．
-8. 管理用OpenSSHをTCP 22番以外へ移す．
-9. 本物のOpenSSHがTCP 22番を使用していないことを確認する．
-10. CowrieをホストのTCP 22番へ割り当てる．
-11. 外部からTCP 22番へ接続するとCowrieへ到達することを確認する．
-12. Cowrieコンテナから外部へ接続できないことを確認する．
-13. ログ永続化，ログローテーション，ディスク監視，料金アラートを確認する．
+AWS上で作業する前に、ローカルで次を確認する。
 
-## GitHubからのデプロイ前提
+```powershell
+git status --short
+docker compose config
+docker compose --env-file .env.lightsail.example config
+.\.venv\Scripts\python -m pytest
+.\.venv\Scripts\python -m ruff check .
+.\.venv\Scripts\python -m mypy src
+```
 
-AWS上でcloneして動作させるため，次のものはGitで管理する．
+確認ポイント:
 
-- Docker Compose設定
-- Cowrie設定テンプレート
-- Pythonソースコード
-- テストコード
-- デプロイ補助スクリプト
-- `.env.example`
-- 手動デプロイ手順
-- 停止手順
-- 復旧手順
-- 監視手順
-- AWS受け入れテスト表
+- コミット漏れがない。
+- 生ログ、`.env`、秘密鍵、実IP、AWS認証情報が差分に含まれていない。
+- Lightsail用環境変数では `cowrie-ssh-proxy` が `0.0.0.0:22` を公開する。
+- `cowrie` 本体は直接ホストポートを公開しない。
 
-次のものはAWS上で作成または配置しても，Gitへ戻してはならない．
+## Lightsailインスタンス作成
 
-- 実際の `.env`
-- SSH秘密鍵
-- AWS認証情報
-- 管理者IP
-- 生ログ
-- 攻撃元IPを含むログ
-- 取得ファイル
-- マルウェアサンプル
+### 推奨初期構成
 
-## 管理用SSH変更手順
+- プラットフォーム: Linux/Unix
+- OS: Ubuntu LTS
+- ネットワーク: IPv4を使用
+- IPv6: 使わない場合は無効化またはファイアウォールで閉じる
+- 静的IP: 作成してインスタンスへアタッチする
 
-OpenSSHを22番から別ポートへ変更するときは，必ず次の順序を守る．
+Lightsailでは、静的IPを使わずに停止または再起動するとパブリックIPが変わる可能性がある。観測先を固定するため、静的IPを使う。
 
-1. AWS Security Groupで新しい管理用ポートを許可する．
-2. 接続元を管理者のグローバルIP/32に制限する．
-3. OpenSSHの設定へ新しいポートを追加する．
-4. SSHサービスを再読み込みする．
-5. 別のターミナルから新しいポートへ接続する．
-6. 新しい接続が成功することを確認する．
-7. 既存のSSHセッションは閉じずに保持する．
-8. 本物のOpenSSHが22番を使用していないことを確認する．
-9. Cowrieをホストの22番へ割り当てる．
-10. 外部から22番へ接続し，Cowrieへ到達することを確認する．
+## Lightsailファイアウォール
 
-接続確認前に既存のSSH設定を削除してはならない．SSH設定の誤りによってEC2へ接続できなくなることを防ぐため，変更前にAWS Systems Manager Session Managerなどの復旧手段も検討する．
+LightsailにはIPv4用とIPv6用のファイアウォールがある。IPv6を有効にする場合は、IPv4とは別にIPv6側も確認する。
 
-## 停止手順
+初期ルール例:
 
-異常時には，即座にコンテナまたはEC2を停止できるようにする．停止手順はVersion 0.7で詳細化する．
+| 用途 | プロトコル | ポート | 接続元 |
+| --- | --- | --- | --- |
+| Cowrie観測用SSH | TCP | 22 | 任意のIPv4 |
+| 管理用OpenSSH | TCP | 22222 | 管理者の固定IP/32 |
+| HTTP/HTTPS | TCP | 80/443 | 開けない |
+| Telnet | TCP | 23 | 開けない |
+| その他 | 任意 | 任意 | 開けない |
 
-停止判断の例:
+重要:
 
-- Cowrieコンテナから外部への通信が確認された
-- 管理用SSHが意図せず公開された
-- ディスク枯渇が近い
-- 料金アラートが発火した
-- 秘密情報または生ログの誤公開が疑われる
-- 取得ファイルによる感染リスクが疑われる
+- 管理用OpenSSHを22番のまま外部公開しない。
+- 管理用OpenSSHの接続元を `0.0.0.0/0` にしない。
+- IPv6を使わないなら、IPv6側に意図しない開放がないことを確認する。
 
-## 復旧手順
+## 管理用OpenSSHの移動
 
-復旧手順はVersion 0.7で詳細化する．初期方針は次のとおりとする．
+Lightsailへ初回接続した直後は、管理用OpenSSHが22番で待ち受けている可能性がある。Cowrieへ22番を渡す前に、管理用OpenSSHを別ポートへ移動する。
 
-- SSH設定変更前に復旧経路を検討する．
-- 既存のSSHセッションは，新しい接続確認が完了するまで閉じない．
-- AWS Systems Manager Session Managerなどの復旧手段を採用するか検討する．
-- ログはコンテナ停止，再作成，更新後も失われない構成とする．
-- ロールバック方法を手順書へ記載する．
+例では `22222` を使う。
+
+手順:
+
+1. LightsailファイアウォールでTCP `22222` を管理者IP/32に限定して許可する。
+2. 既存のSSHセッションは閉じずに残す。
+3. サーバー上でOpenSSHの設定を変更し、待ち受けポートに `22222` を追加する。
+4. OpenSSHを再読み込みまたは再起動する。
+5. 別ターミナルから `22222` で接続できることを確認する。
+6. `22222` で接続できるまで、既存のSSHセッションを閉じない。
+7. 22番で管理用OpenSSHが待ち受けていないことを確認する。
+
+確認例:
+
+```bash
+ssh -i /path/to/key.pem -p 22222 ubuntu@<LIGHTSAIL_STATIC_IP>
+sudo ss -ltnp | grep sshd
+```
+
+Ubuntuのユーザー名は通常 `ubuntu` である。Lightsailのイメージにより異なる場合は、Lightsailの接続画面で確認する。
+
+## Docker導入
+
+Ubuntu上ではDocker EngineとDocker Compose pluginを導入する。手順はDocker公式ドキュメントのUbuntu向けapt repository方式に従う。
+
+確認コマンド:
+
+```bash
+sudo systemctl status docker
+sudo docker version
+sudo docker compose version
+```
+
+正常な結果:
+
+- Docker daemonが起動している。
+- `docker compose version` が表示される。
+
+## GitHubからデプロイ
+
+### clone
+
+```bash
+git clone <PUBLIC_REPOSITORY_URL>
+cd Cowrie-Honeypot
+```
+
+### `.env` 作成
+
+```bash
+cp .env.lightsail.example .env
+```
+
+Lightsailでは必要に応じて次を確認する。
+
+```dotenv
+COWRIE_IMAGE=cowrie/cowrie:latest
+COWRIE_SSH_BIND_ADDRESS=0.0.0.0
+COWRIE_SSH_PORT=22
+TZ=UTC
+```
+
+`.env` はGitへコミットしない。
+
+### 起動
+
+```bash
+sudo docker compose config
+sudo docker compose up -d
+sudo docker compose ps
+```
+
+正常な結果:
+
+- `cowrie` が起動している。
+- `cowrie-ssh-proxy` が `0.0.0.0:22->2222/tcp` を公開している。
+- OpenSSHは22番ではなく管理用ポートで待ち受けている。
+
+## Lightsail受け入れ確認
+
+外部端末から確認する。
+
+```bash
+ssh -p 22 root@<LIGHTSAIL_STATIC_IP>
+```
+
+正常な結果:
+
+- 接続先は管理用OpenSSHではなくCowrieである。
+- ログイン試行や入力コマンドがCowrieログへ記録される。
+
+サーバー上で確認する。
+
+```bash
+sudo docker compose logs --tail=50 cowrie
+ls -l logs/cowrie
+sudo docker compose exec -T cowrie /cowrie/cowrie-env/bin/python3 -c "print('ok')"
+```
+
+外向き通信制限を確認する。
+
+```bash
+./scripts/verify_egress.sh
+```
+
+確認対象は `cowrie` 本体であり、`cowrie-ssh-proxy` ではない。
+
+## ログ分析
+
+```bash
+python3 -m venv .venv
+./.venv/bin/python -m pip install -e .[dev]
+./.venv/bin/python -m cowrie_observer.cli analyze --input logs/cowrie/cowrie.json --output data/public/summary.csv
+```
+
+公開用CSVは匿名化済みである。ただし、生成物はGitへコミットしない。
+
+## 停止
+
+通常停止:
+
+```bash
+sudo docker compose down
+```
+
+緊急停止:
+
+```bash
+sudo docker stop cowrie-ssh-proxy cowrie-observer
+```
+
+Lightsail側で即時遮断する場合:
+
+- LightsailファイアウォールからTCP 22番を閉じる。
+- 必要に応じてインスタンスを停止する。
+
+## 復旧
+
+復旧時の基本手順:
+
+1. 管理用OpenSSHへ接続できることを確認する。
+2. `git status --short` でサーバー上の変更を確認する。
+3. 必要ならログを退避する。
+4. `sudo docker compose down` を実行する。
+5. `sudo docker compose up -d` を実行する。
+6. Cowrieへの22番接続、ログ記録、外向き通信制限を再確認する。
 
 ## 監視
 
-監視対象は次のとおりとする．
+初期運用で確認する項目:
 
-- ログ容量
+- Lightsailの料金アラート
 - ディスク使用率
-- ログローテーションの動作
-- EC2再起動後のCowrie自動起動
-- Cowrieコンテナから外部への通信可否
-- 管理用SSHの接続元制限
-- TCP 23番と不要ポートの閉鎖
-- IPv6経由の意図しない公開
-- AWS Budgetsの料金アラート
-- IAMロールが不要または最小権限であること
+- `logs/cowrie/` の容量
+- Cowrieコンテナの起動状態
+- `cowrie-ssh-proxy` の起動状態
+- TCP 22番がCowrieへ到達すること
+- 管理用OpenSSHが管理者IPからのみ接続できること
+- IPv6側に意図しない開放がないこと
+- Cowrie本体から外部通信できないこと
 
-## 公開用データの取り扱い
+## 参考
 
-- 生ログは非公開とする．
-- ログをGitへコミットしない．
-- 公開用データは別ディレクトリへ出力する．
-- 公開用データではIPアドレスを匿名化する．
-- パスワード情報の公開は原則行わない．
+- Amazon Lightsail: SSH接続とSSHキー
+- Amazon Lightsail: ファイアウォールとポート
+- Amazon Lightsail: 静的IP
+- Docker Docs: Install Docker Engine on Ubuntu

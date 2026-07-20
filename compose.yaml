@@ -25,7 +25,7 @@ services:
       - cowrie
     command: "tcp-listen:2222,fork,reuseaddr tcp-connect:cowrie:2222"
     ports:
-      - "127.0.0.1:${COWRIE_LOCAL_SSH_PORT:-2222}:2222"
+      - "${COWRIE_SSH_BIND_ADDRESS:-127.0.0.1}:${COWRIE_SSH_PORT:-2222}:2222"
     networks:
       - cowrie-net
       - proxy-net
