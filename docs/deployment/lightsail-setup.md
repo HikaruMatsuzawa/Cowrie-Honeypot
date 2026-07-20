@@ -526,6 +526,33 @@ sudo docker compose logs --tail=50 cowrie
 
 - CowrieがSSH接続を受け付ける状態になっている。
 
+### ログ保存ディレクトリの権限を確認する
+
+作業場所: サーバーSSH
+
+ホスト側の `logs/cowrie/` や `data/downloads/` が `root root` 所有で作成されると、Cowrieコンテナがログや取得ファイルを書き込めない場合がある。初回起動後に、Cowrieコンテナの実行ユーザーへ所有権を合わせる。
+
+```bash
+sudo mkdir -p logs/cowrie data/downloads
+COWRIE_UID="$(sudo docker compose exec -T cowrie id -u)"
+COWRIE_GID="$(sudo docker compose exec -T cowrie id -g)"
+sudo chown -R "${COWRIE_UID}:${COWRIE_GID}" logs/cowrie data/downloads
+sudo docker compose restart cowrie
+```
+
+確認する。
+
+```bash
+ls -la logs/cowrie data/downloads
+sudo docker compose logs --tail=50 cowrie
+```
+
+確認ポイント:
+
+- `logs/cowrie/` と `data/downloads/` の所有者が、CowrieコンテナのUID/GIDに合っている。
+- `logs/cowrie/` が `root root` 所有のままになっていない。
+- 外部端末からCowrieへ接続した後、`logs/cowrie/cowrie.json` が作成される。
+
 ## 13. 外部からCowrieへ接続する
 
 作業場所: ローカルPC、または別の外部端末

@@ -207,6 +207,16 @@ sudo docker compose ps
 - `cowrie-ssh-proxy` は起動していない。
 - OpenSSHは22番ではなく管理用ポートで待ち受けている。
 
+ログ保存ディレクトリが `root root` 所有で作成された場合は、Cowrieコンテナの実行ユーザーへ所有権を合わせてからCowrieを再起動する。
+
+```bash
+sudo mkdir -p logs/cowrie data/downloads
+COWRIE_UID="$(sudo docker compose exec -T cowrie id -u)"
+COWRIE_GID="$(sudo docker compose exec -T cowrie id -g)"
+sudo chown -R "${COWRIE_UID}:${COWRIE_GID}" logs/cowrie data/downloads
+sudo docker compose restart cowrie
+```
+
 ## Lightsail受け入れ確認
 
 外部端末から確認する。
@@ -226,7 +236,7 @@ ssh -p 22 root@<LIGHTSAIL_STATIC_IP>
 
 ```bash
 sudo docker compose logs --tail=50 cowrie
-ls -l logs/cowrie
+ls -la logs/cowrie
 sudo docker compose exec -T cowrie /cowrie/cowrie-env/bin/python3 -c "print('ok')"
 ```
 
