@@ -131,6 +131,7 @@ cp .env.lightsail.example .env
 sudo docker compose config
 sudo docker compose up -d
 sudo ./scripts/cowrie_egress_firewall.sh apply
+sudo ./scripts/install_cowrie_egress_firewall_service.sh install
 sudo ./scripts/verify_egress.sh
 ```
 

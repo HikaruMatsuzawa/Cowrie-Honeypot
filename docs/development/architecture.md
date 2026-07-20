@@ -11,13 +11,13 @@
 - 確定: 生ログはGit管理外とする。
 - 確定: Cowrieコンテナは固定サブネットのDocker bridge networkに置く。
 - 確定: LightsailではDockerの `DOCKER-USER` chainにiptablesルールを追加し、Cowrieの外向き通信を遮断する。
+- 確定: `cowrie-egress-firewall.service` systemd oneshot serviceでOS再起動後にfirewallルールを再適用する。
 - 暫定: LightsailのOSはUbuntu LTSとする。
 - 暫定: 管理用OpenSSHのポートは `22222` を例とする。
 - 暫定: Dockerネットワークは固定サブネットを使い、ホスト側firewallの対象を安定させる。
 - 未決: Lightsailのリージョン、インスタンスサイズ、ディスク容量。
 - 未決: 長期ログバックアップ方式。
 - 未決: 監視通知先。
-- 未決: firewallルールをOS再起動後に永続化する方式。
 
 ## ローカル構成
 
@@ -96,7 +96,7 @@ Cowrie本体は外部からのSSH接続を直接受ける。これにより、Co
 
 注意: `cowrie-ssh-proxy` でTCP接続を中継する構成では、Cowrieから見た接続元が実際の外部端末IPではなく、proxyコンテナの内部IPになる場合がある。そのため、Lightsail運用では `cowrie-ssh-proxy` を使わない。
 
-Cowrie本体から外部への通信は、Lightsail Ubuntu上の `DOCKER-USER` chainで遮断する。Dockerネットワークには固定サブネットを設定し、CowrieコンテナIPから外部への新規通信を拒否する。
+Cowrie本体から外部への通信は、Lightsail Ubuntu上の `DOCKER-USER` chainで遮断する。Dockerネットワークには固定サブネットを設定し、CowrieコンテナIPから外部への新規通信を拒否する。OS再起動後は、`cowrie-egress-firewall.service` がDocker起動後にルールを再適用する。
 
 ## データ配置
 

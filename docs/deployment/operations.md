@@ -232,6 +232,18 @@ sudo ./scripts/verify_egress.sh
 - `cowrie-observer block cowrie outbound` を含むiptablesルールが表示される。
 - `OK: outbound connection was blocked.` が表示される。
 
+OS再起動後にもルールが戻るよう、systemdサービスをインストールする。
+
+```bash
+sudo ./scripts/install_cowrie_egress_firewall_service.sh install
+sudo ./scripts/install_cowrie_egress_firewall_service.sh status
+```
+
+確認ポイント:
+
+- `cowrie-egress-firewall.service` が `enabled` である。
+- `sudo ./scripts/cowrie_egress_firewall.sh status` でCowrie用iptablesルールが表示される。
+
 ## Lightsail受け入れ確認
 
 外部端末から確認する。
@@ -258,6 +270,7 @@ sudo docker compose exec -T cowrie /cowrie/cowrie-env/bin/python3 -c "print('ok'
 外向き通信制限を確認する。
 
 ```bash
+sudo ./scripts/install_cowrie_egress_firewall_service.sh status
 sudo ./scripts/cowrie_egress_firewall.sh status
 sudo ./scripts/verify_egress.sh
 ```
@@ -373,6 +386,7 @@ sudo chown -R "$USER:$USER" data/public
 ```bash
 sudo docker compose up -d
 sudo ./scripts/cowrie_egress_firewall.sh apply
+sudo ./scripts/install_cowrie_egress_firewall_service.sh status
 sudo ./scripts/verify_egress.sh
 ```
 
@@ -382,6 +396,20 @@ sudo ./scripts/verify_egress.sh
 - `data/public/summary.csv` は分析コマンドで再生成する。
 - 古い構成の `172.19.x.x` 由来の送信元IPが混ざらない。
 - 実IPを含むログや退避ファイルをGitへコミットしない。
+
+## firewall永続化サービスの削除
+
+firewall永続化サービスを削除する場合に使う。通常運用では削除しない。
+
+```bash
+sudo ./scripts/install_cowrie_egress_firewall_service.sh remove
+sudo ./scripts/install_cowrie_egress_firewall_service.sh status
+```
+
+確認ポイント:
+
+- `cowrie-egress-firewall.service` が無効化されている。
+- 必要に応じて `sudo ./scripts/cowrie_egress_firewall.sh remove` で現在のiptablesルールも削除できる。
 
 ## 参考
 

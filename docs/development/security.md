@@ -18,10 +18,10 @@
 - 確定: 公開用CSVではIPを匿名化し、パスワードを出力しない。
 - 確定: Cowrieコンテナは固定サブネットのDocker bridge networkに置く。
 - 確定: Lightsailではiptablesの `DOCKER-USER` chainでCowrieの外向き通信を遮断する。
+- 確定: `cowrie-egress-firewall.service` systemd oneshot serviceでfirewallルールを永続化する。
 - 暫定: Lightsailの管理用SSHポートは `22222` を例とする。
 - 暫定: Dockerネットワークは固定サブネット化し、firewallルールの対象を安定させる。
 - 未決: 長期ログ保管、バックアップ、通知先、インスタンスサイズ。
-- 未決: OS再起動後にfirewallルールを永続化する方式。
 
 ## 必須対策
 
@@ -71,7 +71,7 @@ LightsailではインスタンスにIPv4用とIPv6用のファイアウォール
 
 実送信元IPを記録するため、Cowrieコンテナ自身をホスト側SSHポートへ直接公開する。TCP中継コンテナを使うと、Cowrieから見た接続元がproxyコンテナの内部IPになり、送信元IP分析の要件を満たせない。
 
-このため、Cowrie本体は固定サブネットのDocker bridge networkに置き、firewallルールの対象を安定させる。Lightsail Ubuntuでは、Dockerがユーザー定義ルール用に用意する `DOCKER-USER` chainへiptablesルールを追加し、Cowrieコンテナから外部への新規通信を遮断する。
+このため、Cowrie本体は固定サブネットのDocker bridge networkに置き、firewallルールの対象を安定させる。Lightsail Ubuntuでは、Dockerがユーザー定義ルール用に用意する `DOCKER-USER` chainへiptablesルールを追加し、Cowrieコンテナから外部への新規通信を遮断する。OS再起動後は、systemd oneshot serviceで同じルールを再適用する。
 
 検証は必須である。設定ファイルを見ただけでは完了としない。
 

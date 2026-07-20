@@ -571,6 +571,19 @@ sudo ./scripts/cowrie_egress_firewall.sh status
 - `cowrie-observer block cowrie outbound` を含むiptablesルールが表示される。
 - `cowrie-observer allow established docker traffic` を含むiptablesルールが表示される。
 
+OS再起動後にも同じルールが戻るように、systemdサービスをインストールする。
+
+```bash
+sudo ./scripts/install_cowrie_egress_firewall_service.sh install
+sudo ./scripts/install_cowrie_egress_firewall_service.sh status
+```
+
+正常な結果:
+
+- `cowrie-egress-firewall.service` が `enabled` になっている。
+- `cowrie-egress-firewall.service` が正常終了している。
+- `sudo ./scripts/cowrie_egress_firewall.sh status` でCowrie用iptablesルールが表示される。
+
 実通信で確認する。
 
 ```bash
@@ -586,8 +599,8 @@ OK: outbound connection was blocked.
 注意:
 
 - このfirewallルールはLightsailファイアウォールではなく、インスタンスOS上のiptablesルールである。
-- Dockerやインスタンスの再起動後は、`sudo ./scripts/cowrie_egress_firewall.sh status` でルールが残っているか確認する。
-- ルールが消えている場合は、Cowrie公開前に `sudo ./scripts/cowrie_egress_firewall.sh apply` を再実行する。
+- Dockerやインスタンスの再起動後は、`sudo ./scripts/install_cowrie_egress_firewall_service.sh status` と `sudo ./scripts/cowrie_egress_firewall.sh status` でルールが戻っているか確認する。
+- systemdサービスを入れていない環境では、Cowrie公開前に `sudo ./scripts/cowrie_egress_firewall.sh apply` を再実行する。
 
 ## 14. 外部からCowrieへ接続する
 
