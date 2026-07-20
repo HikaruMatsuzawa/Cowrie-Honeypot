@@ -26,3 +26,13 @@ docker compose config
 ```
 
 上記で構成を確認できます．コンテナ起動は，内容を確認してから手動で行います．
+
+## ログ分析CLI
+
+Python関連コマンドは `.venv` 経由で実行します．
+
+```powershell
+.\.venv\Scripts\python -m cowrie_observer.cli analyze --input <cowrie.jsonl> --output <summary.csv>
+```
+
+公開用CSVでは送信元IPを匿名化し，パスワード集計は出力しません．生ログや実IPを含むファイルはGitへコミットしないでください．
