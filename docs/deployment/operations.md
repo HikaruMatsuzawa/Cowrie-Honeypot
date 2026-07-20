@@ -325,12 +325,63 @@ Lightsail側で即時遮断する場合:
 - ディスク使用率
 - `logs/cowrie/` の容量
 - Cowrieコンテナの起動状態
-- Cowrieコンテナの起動状態
 - TCP 22番がCowrieへ到達すること
 - Cowrieログの `src_ip` に実送信元IPが記録されること
 - 管理用OpenSSHが管理者IPからのみ接続できること
 - IPv6側に意図しない開放がないこと
 - Cowrie本体から外部通信できないこと
+
+## 検証データのリセット
+
+過去のログを消して、新しい観測データだけで確認し直す場合に使う。
+
+`docker compose down -v` だけでは、`logs/cowrie/`、`data/downloads/`、`data/public/` は消えない。これらはDocker volumeではなく、ホスト側ディレクトリとして保存しているためである。
+
+停止する。
+
+```bash
+sudo docker compose down
+```
+
+削除前に対象を確認する。
+
+```bash
+du -sh logs/cowrie data/downloads data/public 2>/dev/null || true
+ls -la logs/cowrie data/downloads data/public 2>/dev/null || true
+```
+
+本当に消してよい場合だけ、中身を削除する。
+
+```bash
+sudo rm -rf logs/cowrie/*
+sudo rm -rf data/downloads/*
+sudo rm -rf data/public/*
+```
+
+ディレクトリと権限を整える。
+
+```bash
+sudo mkdir -p logs/cowrie data/downloads data/public
+COWRIE_UID="$(sudo docker compose run --rm --no-deps cowrie /cowrie/cowrie-env/bin/python3 -c 'import os; print(os.getuid())')"
+COWRIE_GID="$(sudo docker compose run --rm --no-deps cowrie /cowrie/cowrie-env/bin/python3 -c 'import os; print(os.getgid())')"
+sudo chown -R "${COWRIE_UID}:${COWRIE_GID}" logs/cowrie data/downloads
+sudo chown -R "$USER:$USER" data/public
+```
+
+起動し直す。
+
+```bash
+sudo docker compose up -d
+sudo ./scripts/cowrie_egress_firewall.sh apply
+sudo ./scripts/verify_egress.sh
+```
+
+確認ポイント:
+
+- 新しい接続後に `logs/cowrie/cowrie.json` が作成される。
+- `data/public/summary.csv` は分析コマンドで再生成する。
+- 古い構成の `172.19.x.x` 由来の送信元IPが混ざらない。
+- 実IPを含むログや退避ファイルをGitへコミットしない。
 
 ## 参考
 

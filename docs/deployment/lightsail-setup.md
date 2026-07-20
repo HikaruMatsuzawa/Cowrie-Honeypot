@@ -500,7 +500,6 @@ sudo docker compose config
 - `cowrie` が `0.0.0.0:22->2222/tcp` を公開する。
 - `cowrie-ssh-proxy` が構成に残っていない。
 - Dockerネットワークに固定サブネットが設定されている。
-- Cowrieネットワークに固定サブネットが設定されている。
 - Cowrieコンテナの外向き通信を遮断するホスト側firewallの手順が準備されている。
 - `logs/cowrie/` と `data/downloads/` がホスト側へマウントされている。
 
@@ -804,7 +803,84 @@ Lightsail画面で確認する。
 - IPv6ファイアウォール
 - 不要ポートが開いていないこと
 
-## 21. 公開前の最終チェック
+## 21. 過去データを消して取り直す
+
+作業場所: サーバーSSH
+
+検証をやり直す場合、`docker compose down -v` だけでは過去ログは消えない。このプロジェクトではCowrieログや分析結果をDocker volumeではなくホスト側ディレクトリへ保存しているためである。
+
+削除対象:
+
+```text
+logs/cowrie/*
+data/downloads/*
+data/public/*
+```
+
+削除しないもの:
+
+```text
+.env
+.venv/
+compose.yaml
+docs/
+src/
+tests/
+```
+
+まず停止する。
+
+```bash
+sudo docker compose down
+```
+
+削除前に対象を確認する。
+
+```bash
+du -sh logs/cowrie data/downloads data/public 2>/dev/null || true
+ls -la logs/cowrie data/downloads data/public 2>/dev/null || true
+```
+
+本当に消してよい場合だけ、中身を削除する。
+
+```bash
+sudo rm -rf logs/cowrie/*
+sudo rm -rf data/downloads/*
+sudo rm -rf data/public/*
+```
+
+ディレクトリを再作成し、権限を整える。
+
+```bash
+sudo mkdir -p logs/cowrie data/downloads data/public
+COWRIE_UID="$(sudo docker compose run --rm --no-deps cowrie /cowrie/cowrie-env/bin/python3 -c 'import os; print(os.getuid())')"
+COWRIE_GID="$(sudo docker compose run --rm --no-deps cowrie /cowrie/cowrie-env/bin/python3 -c 'import os; print(os.getgid())')"
+sudo chown -R "${COWRIE_UID}:${COWRIE_GID}" logs/cowrie data/downloads
+sudo chown -R "$USER:$USER" data/public
+```
+
+起動し直す。
+
+```bash
+sudo docker compose up -d
+sudo ./scripts/cowrie_egress_firewall.sh apply
+sudo ./scripts/verify_egress.sh
+```
+
+確認ポイント:
+
+- `logs/cowrie/cowrie.json` は削除後の新しい接続から作成される。
+- `data/public/summary.csv` は削除後に再生成される。
+- 古い `172.19.x.x` などのproxy時代の送信元IPが、新しいCSVに混ざらない。
+- `sudo ./scripts/verify_egress.sh` が `OK: outbound connection was blocked.` を表示する。
+
+注意:
+
+- 生ログ削除は元に戻せない。
+- 必要なログがある場合は、削除前にGit管理外の安全な場所へ退避する。
+- 実IPを含むログや退避ファイルをGitへコミットしない。
+
+## 22. 公開前の最終チェック
 
 作業場所: ローカルPC
 
