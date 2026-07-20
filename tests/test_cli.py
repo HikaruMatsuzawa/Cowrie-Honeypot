@@ -47,3 +47,15 @@ def test_cli_analyze_generates_public_csv(tmp_path) -> None:
     assert {"metric": "total_events", "key": "all", "value": "3"} in rows
     assert {"metric": "source_ips", "key": "198.51.100.0", "value": "2"} in rows
     assert "admin" not in output_path.read_text(encoding="utf-8")
+
+
+def test_cli_analyze_missing_input_returns_error(tmp_path, capsys) -> None:
+    input_path = tmp_path / "missing.json"
+    output_path = tmp_path / "summary.csv"
+
+    exit_code = main(["analyze", "--input", str(input_path), "--output", str(output_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Input log file not found" in captured.err
+    assert not output_path.exists()

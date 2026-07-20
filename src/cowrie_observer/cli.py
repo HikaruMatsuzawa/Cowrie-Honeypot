@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 from cowrie_observer.exporter import export_public_summary_csv
@@ -34,6 +35,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _run_analyze(input_path: Path, output_path: Path) -> int:
+    if not input_path.exists():
+        print(
+            f"Input log file not found: {input_path}\n"
+            "Confirm that Cowrie has generated a JSON log, for example: ls -l logs/cowrie",
+            file=sys.stderr,
+        )
+        return 1
+
     parse_result = parse_json_lines(input_path)
     events = normalize_events(parse_result.events)
     summary = summarize_events(events)

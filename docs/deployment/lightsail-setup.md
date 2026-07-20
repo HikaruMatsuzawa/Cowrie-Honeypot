@@ -642,6 +642,7 @@ python3 -m venv .venv
 集計する。
 
 ```bash
+ls -la logs/cowrie
 ./.venv/bin/python -m cowrie_observer.cli analyze --input logs/cowrie/cowrie.json --output data/public/summary.csv
 ```
 
@@ -653,9 +654,17 @@ sed -n '1,80p' data/public/summary.csv
 
 確認ポイント:
 
+- `logs/cowrie/cowrie.json` が存在する。
 - CSVにパスワードが出ていない。
 - IPが匿名化されている。
 - `data/public/summary.csv` はGitへコミットしない。
+
+`Input log file not found: logs/cowrie/cowrie.json` が出る場合:
+
+1. `ls -la logs/cowrie` で実際のログファイル名を確認する。
+2. `sudo docker compose logs --tail=100 cowrie` でCowrieが起動しているか確認する。
+3. 外部端末からTCP 22番へ接続し、ログイン試行やコマンド入力を発生させる。
+4. それでも `cowrie.json` が作成されない場合は、CowrieのJSONログ設定とログマウント設定を確認する。
 
 ## 17. 停止手順
 

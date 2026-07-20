@@ -249,10 +249,13 @@ sudo apt install -y python3-venv
 ```bash
 python3 -m venv .venv
 ./.venv/bin/python -m pip install -e .[dev]
+ls -la logs/cowrie
 ./.venv/bin/python -m cowrie_observer.cli analyze --input logs/cowrie/cowrie.json --output data/public/summary.csv
 ```
 
 公開用CSVは匿名化済みである。ただし、生成物はGitへコミットしない。
+
+`logs/cowrie/cowrie.json` が存在しない場合は、`ls -la logs/cowrie` と `sudo docker compose logs --tail=100 cowrie` でログ出力状況を確認する。必要に応じて外部端末からCowrieへ接続し、ログイン試行やコマンド入力を発生させる。
 
 ## 停止
 
