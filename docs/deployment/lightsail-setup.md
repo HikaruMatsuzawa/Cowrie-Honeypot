@@ -1,8 +1,8 @@
 # Lightsail初回セットアップ手順
 
-## この手順書の目的
+## 目的
 
-この文書は、まっさらなAmazon LightsailのUbuntuインスタンスへSSHログインできた状態から、Cowrieハニーポットを安全に公開するまでの一本道の手順をまとめたものである。
+この文書は、まっさらなAmazon LightsailのUbuntuインスタンスへSSHログインできた状態から、Cowrieハニーポットを安全に公開するまでの手順をまとめたものである。
 
 この手順では、次の状態を目標にする。
 
@@ -10,16 +10,30 @@
 - 管理用OpenSSHは管理者IPからのみ接続できる。
 - インターネットからTCP 22番へ接続するとCowrieへ到達する。
 - Cowrie本体はDocker内部ネットワークに置き、外向き通信できない。
+- HTTP、HTTPS、Telnetなど不要なポートは開けない。
+- IPv6を使わない場合は、IPv6側も閉じる。
 - 生ログ、秘密鍵、`.env`、実IPをGitへ載せない。
+
+## 作業場所の見分け方
+
+各手順の先頭に、どこで作業するかを書く。
+
+| 表記 | 作業する場所 |
+| --- | --- |
+| Web画面 | AWS Lightsailのブラウザ画面 |
+| サーバーSSH | LightsailインスタンスへSSHログインしたターミナル |
+| ローカルPC | 自分のPCのPowerShell、ターミナル、または別端末 |
+
+特に危険なのは、Web画面のファイアウォール変更と、サーバーSSHのOpenSSH設定変更である。この2つは順番を飛ばさない。
 
 ## 全体の流れ
 
-1. Lightsail画面で静的IPを設定する。
-2. Lightsail画面で管理用SSHポートを一時的に追加する。
+1. Web画面で静的IPを設定する。
+2. Web画面で初期ファイアウォールを安全側へ寄せる。
 3. サーバーへSSHログインする。
 4. サーバー側のOpenSSHを22番以外へ移す。
 5. 新しい管理用SSHポートでログインできることを確認する。
-6. Lightsail画面でファイアウォールを最終形にする。
+6. Web画面でファイアウォールを最終形にする。
 7. サーバーへDocker EngineとDocker Compose pluginを入れる。
 8. GitHubからリポジトリをcloneする。
 9. Lightsail用 `.env` を作成する。
@@ -45,16 +59,18 @@
 | Lightsail静的IP | `<LIGHTSAIL_STATIC_IP>` |
 | 管理者IP | `<YOUR_GLOBAL_IP>/32` |
 
-実際のIPアドレスや秘密鍵パスは、README、docs、Issue、コミットに貼らない。
+実際のIPアドレス、秘密鍵パス、AWSアカウント情報は、README、docs、Issue、コミットに貼らない。
 
-## 1. Lightsail画面で静的IPを設定する
+## 1. 静的IPを設定する
+
+作業場所: Web画面
 
 Lightsailの動的パブリックIPは、インスタンスの停止や再起動で変わる可能性がある。観測先を固定するため、先に静的IPを作成してインスタンスへアタッチする。
 
-Lightsail画面で行うこと:
+画面操作:
 
 1. Lightsailコンソールを開く。
-2. `Networking` を開く。
+2. 左メニューまたは上部メニューから `Networking` を開く。
 3. `Create static IP` を選ぶ。
 4. 対象インスタンスと同じリージョンを選ぶ。
 5. 対象インスタンスへ静的IPをアタッチする。
@@ -65,26 +81,65 @@ Lightsail画面で行うこと:
 - 静的IPが対象インスタンスへアタッチされている。
 - 以降の接続先は動的IPではなく静的IPを使う。
 
-## 2. Lightsail画面で初期ファイアウォールを設定する
+## 2. 初期ファイアウォールを設定する
+
+作業場所: Web画面
 
 最初は管理用OpenSSHがTCP 22番で待ち受けている可能性がある。いきなり22番をCowrieへ渡すと、サーバーへ入れなくなる危険がある。
 
-まず、管理用OpenSSHの移動先としてTCP `22222` を追加する。
+まずは、管理用OpenSSHの移動先としてTCP `22222` を追加する。同時に、不要なHTTPとIPv6側の開放を閉じる。
 
-Lightsail画面で行うこと:
+### スクリーンショットの状態から変更する場合
+
+スクリーンショットでは、次の状態になっている。
+
+IPv4ファイアウォール:
+
+| 行 | 現在の状態 | 操作 |
+| --- | --- | --- |
+| SSH / TCP / 22 / 任意のIPv4アドレス | 管理用SSHが全世界へ開いている | 鉛筆アイコンで編集し、接続元を `<YOUR_GLOBAL_IP>/32` に変更する |
+| HTTP / TCP / 80 / 任意のIPv4アドレス | HTTPが全世界へ開いている | ゴミ箱アイコンで削除する |
+
+IPv6ネットワーキング:
+
+| 行または項目 | 現在の状態 | 操作 |
+| --- | --- | --- |
+| IPv6ネットワーキング | 有効 | 初期運用では無効化を推奨する |
+| IPv6 SSH / TCP / 22 / 任意のIPv6アドレス | IPv6側のSSHが全世界へ開いている | IPv6を無効化しない場合はゴミ箱アイコンで削除する |
+| IPv6 HTTP / TCP / 80 / 任意のIPv6アドレス | IPv6側のHTTPが全世界へ開いている | IPv6を無効化しない場合はゴミ箱アイコンで削除する |
+
+### 具体的な画面操作
+
+1. Lightsailインスタンス詳細画面を開く。
+2. `Networking` タブを開く。
+3. `IPv4 ファイアウォール` を見る。
+4. `SSH / TCP / 22` の行の鉛筆アイコンを押す。
+5. 接続元を `任意のIPv4アドレス` から `<YOUR_GLOBAL_IP>/32` に変更して保存する。
+6. `HTTP / TCP / 80` の行のゴミ箱アイコンを押して削除する。
+7. `ルールを追加` を押す。
+8. アプリケーションは `カスタム`、プロトコルは `TCP`、ポートは `22222`、制限は `<YOUR_GLOBAL_IP>/32` にして追加する。
+9. `IPv6 ネットワーキング` が有効な場合、使わないなら無効化する。
+10. IPv6を無効化しない場合は、`IPv6 ファイアウォール` の `SSH / TCP / 22` と `HTTP / TCP / 80` を削除する。
+
+初期ファイアウォールの完成形:
 
 | 用途 | プロトコル | ポート | 接続元 |
 | --- | --- | --- | --- |
-| 初期管理用SSH | TCP | 22 | 管理者IP/32 |
-| 新管理用SSH | TCP | 22222 | 管理者IP/32 |
+| 初期管理用OpenSSH | TCP | 22 | `<YOUR_GLOBAL_IP>/32` |
+| 新管理用OpenSSH | TCP | 22222 | `<YOUR_GLOBAL_IP>/32` |
 
 注意:
 
-- 管理用SSHを `0.0.0.0/0` へ開けない。
-- IPv6を使わないなら、IPv6側のファイアウォールに意図しない許可がないことを確認する。
+- この段階では、22番はまだ管理用OpenSSH用である。
+- 22番をCowrie用として全体公開するのは、22222番で管理ログインできることを確認した後である。
+- HTTP 80番はこのプロジェクトでは使わないため削除する。
+- 管理用OpenSSHを `0.0.0.0/0` へ開けない。
 - LightsailのIPv4ファイアウォールとIPv6ファイアウォールは独立しているため、両方を見る。
+- LightsailブラウザSSHは22番の管理用SSHに依存する場合がある。OpenSSHを移動した後は、ローカルPCから22222番で入れることを優先して確認する。
 
 ## 3. サーバーへSSHログインする
+
+作業場所: ローカルPC、またはWeb画面のブラウザSSH
 
 ローカルPCから接続する例:
 
@@ -97,28 +152,33 @@ LightsailのブラウザSSHを使ってもよい。
 確認ポイント:
 
 - `ubuntu` ユーザーでログインできる。
-- まだこの時点では既存のSSHセッションを閉じない。
+- この時点では既存のSSHセッションを閉じない。
 
 ## 4. 管理用OpenSSHを22番以外へ移す
 
-UbuntuのOpenSSH設定は環境により場所が異なることがある。まず現在の待ち受け状態を確認する。
+作業場所: サーバーSSH
+
+現在の待ち受け状態を確認する。
 
 ```bash
 sudo ss -ltnp | grep sshd
 ```
 
-OpenSSHの設定ファイルを確認する。
+OpenSSHが認識しているポートを確認する。
 
 ```bash
 sudo sshd -T | grep '^port '
 ```
 
-`/etc/ssh/sshd_config` または `/etc/ssh/sshd_config.d/` 配下の設定で、管理用ポート `22222` を有効にする。
-
-例:
+設定ファイルをバックアップする。
 
 ```bash
 sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+```
+
+設定ファイルを編集する。
+
+```bash
 sudo sudoedit /etc/ssh/sshd_config
 ```
 
@@ -130,19 +190,24 @@ PasswordAuthentication no
 PermitRootLogin no
 ```
 
+注意:
+
+- `Port 22` が残っていると、OpenSSHが22番でも待ち受ける可能性がある。
+- 設定ファイルが `/etc/ssh/sshd_config.d/` 配下で分割されている環境では、重複する `Port` 設定がないか確認する。
+
 設定構文を確認する。
 
 ```bash
 sudo sshd -t
 ```
 
-OpenSSHを再読み込みする。
+エラーがなければOpenSSHを再読み込みする。
 
 ```bash
 sudo systemctl reload ssh
 ```
 
-もし `ssh` サービス名で失敗する場合は、次を確認する。
+もし `ssh` サービス名で失敗する場合は、サービス名を確認する。
 
 ```bash
 systemctl list-units --type=service | grep ssh
@@ -151,10 +216,12 @@ systemctl list-units --type=service | grep ssh
 重要:
 
 - 新しい接続が成功するまで、現在のSSHセッションを閉じない。
-- `sshd -t` が失敗した状態で再起動しない。
-- 22番を閉じる前に、必ず22222番でログインできることを確認する。
+- `sshd -t` が失敗した状態で再読み込みや再起動をしない。
+- 22番をCowrieへ渡す前に、必ず22222番でログインできることを確認する。
 
 ## 5. 新しい管理用SSHポートで接続確認する
+
+作業場所: ローカルPC
 
 別ターミナルから確認する。
 
@@ -176,30 +243,40 @@ sudo ss -ltnp | grep sshd
 確認ポイント:
 
 - OpenSSHが22222番で待ち受けている。
-- 最終的にはOpenSSHが22番で待ち受けていない状態にする。
+- OpenSSHが22番で待ち受けていない。
 
-## 6. Lightsail画面でファイアウォールを最終形にする
+## 6. ファイアウォールを最終形にする
 
-OpenSSHの新ポート接続が確認できたら、Lightsailファイアウォールを最終形へ変更する。
+作業場所: Web画面
 
-IPv4ファイアウォール:
+22222番で管理ログインできることを確認できたら、22番をCowrie用にする。
+
+### IPv4ファイアウォールの最終形
 
 | 用途 | プロトコル | ポート | 接続元 |
 | --- | --- | --- | --- |
-| Cowrie観測用SSH | TCP | 22 | 任意のIPv4 |
-| 管理用OpenSSH | TCP | 22222 | 管理者IP/32 |
+| Cowrie観測用SSH | TCP | 22 | 任意のIPv4アドレス |
+| 管理用OpenSSH | TCP | 22222 | `<YOUR_GLOBAL_IP>/32` |
 
-閉じるもの:
+画面操作:
 
-- TCP 23
-- TCP 80
-- TCP 443
-- 不要な全ポート
+1. `IPv4 ファイアウォール` の `SSH / TCP / 22` の行を確認する。
+2. この時点では22番はCowrie用にするため、接続元を `任意のIPv4アドレス` にする。
+3. `カスタム / TCP / 22222` の行を確認する。
+4. 22222番の接続元は `<YOUR_GLOBAL_IP>/32` のままにする。
+5. `HTTP / TCP / 80` が残っていたら削除する。
+6. `HTTPS / TCP / 443` や `Telnet / TCP / 23` があれば削除する。
+7. その他、用途が説明できないルールは削除する。
 
-IPv6ファイアウォール:
+### IPv6ファイアウォールの最終形
 
-- IPv6を使わない場合は、SSHや不要ポートを開けない。
-- IPv6を使う場合は、IPv4と同じ考え方で明示的に制限する。
+初期運用ではIPv6を使わない方針を推奨する。
+
+推奨設定:
+
+- `IPv6 ネットワーキング` を無効化する。
+- 無効化しない場合でも、`IPv6 ファイアウォール` の `SSH / TCP / 22` と `HTTP / TCP / 80` は削除する。
+- IPv6でCowrieを公開する設計は、別途仕様化してから行う。
 
 確認ポイント:
 
@@ -207,10 +284,12 @@ IPv6ファイアウォール:
 - 管理用OpenSSHを `0.0.0.0/0` へ開けていない。
 - TCP 22番はCowrie用として開ける。
 - TCP 23番は開けない。
+- TCP 80番は開けない。
+- IPv6側に `SSH / TCP / 22 / 任意のIPv6アドレス` や `HTTP / TCP / 80 / 任意のIPv6アドレス` が残っていない。
 
 ## 7. サーバーの基本パッケージを更新する
 
-サーバーにログインした状態で実行する。
+作業場所: サーバーSSH
 
 ```bash
 sudo apt update
@@ -224,6 +303,8 @@ sudo apt install -y ca-certificates curl git
 - 再起動が必要と表示された場合は、管理用SSHで再接続できることを確認してから再起動する。
 
 ## 8. Docker EngineとCompose pluginをインストールする
+
+作業場所: サーバーSSH
 
 Docker公式のUbuntu向けapt repository方式でインストールする。
 
@@ -272,6 +353,8 @@ sudo docker compose version
 
 ## 9. GitHubからリポジトリをcloneする
 
+作業場所: サーバーSSH
+
 ```bash
 git clone <PUBLIC_REPOSITORY_URL>
 cd Cowrie-Honeypot
@@ -290,6 +373,8 @@ ls
 - 未コミット変更がない。
 
 ## 10. Lightsail用 `.env` を作成する
+
+作業場所: サーバーSSH
 
 ```bash
 cp .env.lightsail.example .env
@@ -318,6 +403,8 @@ TZ=UTC
 
 ## 11. Compose設定を確認する
 
+作業場所: サーバーSSH
+
 ```bash
 sudo docker compose config
 ```
@@ -330,6 +417,8 @@ sudo docker compose config
 - `logs/cowrie/` と `data/downloads/` がホスト側へマウントされている。
 
 ## 12. Cowrieを起動する
+
+作業場所: サーバーSSH
 
 ```bash
 sudo docker compose up -d
@@ -354,7 +443,7 @@ sudo docker compose logs --tail=50 cowrie
 
 ## 13. 外部からCowrieへ接続する
 
-ローカルPCや別の端末から確認する。
+作業場所: ローカルPC、または別の外部端末
 
 ```bash
 ssh -p 22 root@<LIGHTSAIL_STATIC_IP>
@@ -377,7 +466,7 @@ sudo docker compose logs --tail=50 cowrie
 
 ## 14. 管理用OpenSSHが22番で公開されていないことを確認する
 
-サーバー上で確認する。
+作業場所: サーバーSSH
 
 ```bash
 sudo ss -ltnp
@@ -390,6 +479,8 @@ sudo ss -ltnp
 - 22番を受けているのはDockerのポート公開である。
 
 ## 15. Cowrie本体の外向き通信制限を確認する
+
+作業場所: サーバーSSH
 
 ```bash
 ./scripts/verify_egress.sh
@@ -415,6 +506,8 @@ sudo docker compose down
 ```
 
 ## 16. Python分析環境を作る
+
+作業場所: サーバーSSH
 
 ログ分析をLightsail上でも実行する場合は、プロジェクト直下に `.venv` を作る。
 
@@ -443,6 +536,8 @@ sed -n '1,80p' data/public/summary.csv
 
 ## 17. 停止手順
 
+作業場所: サーバーSSH、またはWeb画面
+
 通常停止:
 
 ```bash
@@ -455,12 +550,14 @@ sudo docker compose down
 sudo docker stop cowrie-ssh-proxy cowrie-observer
 ```
 
-Lightsail画面で即時遮断する場合:
+Web画面で即時遮断する場合:
 
-- TCP 22番のファイアウォールルールを削除する。
+- LightsailファイアウォールからTCP 22番のルールを削除する。
 - 必要に応じてインスタンスを停止する。
 
 ## 18. 復旧手順
+
+作業場所: サーバーSSH
 
 ```bash
 ssh -i /path/to/key.pem -p 22222 ubuntu@<LIGHTSAIL_STATIC_IP>
@@ -481,7 +578,9 @@ sudo docker compose ps
 
 ## 19. 監視するもの
 
-初期運用では次を定期的に確認する。
+作業場所: サーバーSSH、Web画面
+
+サーバー上で確認する。
 
 ```bash
 df -h
@@ -490,7 +589,7 @@ sudo docker compose ps
 sudo docker compose logs --tail=100 cowrie
 ```
 
-Lightsail画面で確認するもの:
+Lightsail画面で確認する。
 
 - 料金アラート
 - インスタンス状態
@@ -500,6 +599,8 @@ Lightsail画面で確認するもの:
 - 不要ポートが開いていないこと
 
 ## 20. 公開前の最終チェック
+
+作業場所: ローカルPC
 
 Gitへpushする前に、ローカルPCで確認する。
 
