@@ -9,6 +9,7 @@ logs/
 data/raw/
 data/normalized/
 data/public/
+data/downloads/
 
 downloads/
 artifacts/

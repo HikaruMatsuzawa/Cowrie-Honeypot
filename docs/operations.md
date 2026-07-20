@@ -12,6 +12,18 @@
 - ホストのTCP 2222番をCowrieコンテナへ割り当てる．
 - Docker Composeでは `127.0.0.1:2222:2222` の形式を基本とする．
 - ルーターのポート開放やインターネット公開を行わない．
+- ローカル設定値は `.env.example` をもとに `.env` を作成して管理する．
+- `.env`，生ログ，取得ファイルはGitへコミットしない．
+- CowrieのJSONログ保存先は `logs/cowrie/` とする．
+- Cowrieが取得したファイルの保存先は `data/downloads/` とする．
+
+ローカル構成確認:
+
+```powershell
+docker compose config
+```
+
+このコマンドは構成の静的確認に使用する．コンテナの起動は行わない．
 
 ### AWS
 
