@@ -106,7 +106,7 @@ sudo docker compose ps
 - Cowrieコンテナ自身が `0.0.0.0:22->2222/tcp` を公開している。
 - `cowrie-ssh-proxy` は起動していない。
 - Dockerネットワークに固定サブネットが設定されている。
-- Cowrieコンテナの外向き通信を遮断するホスト側firewallが設定されている。
+- `sudo ./scripts/cowrie_egress_firewall.sh status` で、Cowrieコンテナの外向き通信を遮断する `DOCKER-USER` chainのルールが表示される。
 
 外部端末からの確認:
 
@@ -147,6 +147,8 @@ ls -l logs/cowrie
 外向き通信制限:
 
 ```bash
+sudo ./scripts/cowrie_egress_firewall.sh apply
+sudo ./scripts/cowrie_egress_firewall.sh status
 sudo ./scripts/verify_egress.sh
 ```
 

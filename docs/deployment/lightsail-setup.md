@@ -476,6 +476,8 @@ sed -n '1,120p' .env
 COWRIE_IMAGE=cowrie/cowrie:latest
 COWRIE_SSH_BIND_ADDRESS=0.0.0.0
 COWRIE_SSH_PORT=22
+COWRIE_NETWORK_SUBNET=172.30.0.0/24
+COWRIE_CONTAINER_IP=172.30.0.10
 TZ=UTC
 ```
 
@@ -498,7 +500,8 @@ sudo docker compose config
 - `cowrie` が `0.0.0.0:22->2222/tcp` を公開する。
 - `cowrie-ssh-proxy` が構成に残っていない。
 - Dockerネットワークに固定サブネットが設定されている。
-- Cowrieコンテナの外向き通信を遮断するホスト側firewallの手順が準備されている。
+- Cowrieネットワークが `internal: true` になっている。
+- Cowrieコンテナの外向き通信を追加で遮断するホスト側firewallの手順が準備されている。
 - `logs/cowrie/` と `data/downloads/` がホスト側へマウントされている。
 
 ## 12. Cowrieを起動する
@@ -553,7 +556,41 @@ sudo docker compose logs --tail=50 cowrie
 - `logs/cowrie/` が `root root` 所有のままになっていない。
 - 外部端末からCowrieへ接続した後、`logs/cowrie/cowrie.json` が作成される。
 
-## 13. 外部からCowrieへ接続する
+## 13. Cowrieの外向き通信をホスト側firewallで遮断する
+
+作業場所: サーバーSSH
+
+Cowrieコンテナは実送信元IPを記録するため、TCP 22番を直接受ける。CowrieはDocker internal networkに置く。Lightsailでは追加防御として、Dockerのユーザー定義ルール用chainである `DOCKER-USER` でも外向き通信を遮断する。
+
+```bash
+sudo ./scripts/cowrie_egress_firewall.sh apply
+sudo ./scripts/cowrie_egress_firewall.sh status
+```
+
+正常な結果:
+
+- `cowrie-observer block cowrie outbound` を含むiptablesルールが表示される。
+- `cowrie-observer allow established docker traffic` を含むiptablesルールが表示される。
+
+実通信で確認する。
+
+```bash
+sudo ./scripts/verify_egress.sh
+```
+
+正常な結果:
+
+```text
+OK: outbound connection was blocked.
+```
+
+注意:
+
+- このfirewallルールはLightsailファイアウォールではなく、インスタンスOS上のiptablesルールである。
+- Dockerやインスタンスの再起動後は、`sudo ./scripts/cowrie_egress_firewall.sh status` でルールが残っているか確認する。
+- ルールが消えている場合は、Cowrie公開前に `sudo ./scripts/cowrie_egress_firewall.sh apply` を再実行する。
+
+## 14. 外部からCowrieへ接続する
 
 作業場所: ローカルPC、または別の外部端末
 
@@ -608,7 +645,7 @@ Attempt to access blocked network address
 - 実送信元IPを含む生ログはGitへコミットしない。
 - 公開用CSVでは送信元IPを匿名化する。
 
-## 14. 管理用OpenSSHが22番で公開されていないことを確認する
+## 15. 管理用OpenSSHが22番で公開されていないことを確認する
 
 作業場所: サーバーSSH
 
@@ -622,7 +659,7 @@ sudo ss -ltnp
 - `sshd` が22番で待ち受けていない。
 - 22番を受けているのはDockerのポート公開である。
 
-## 15. Cowrie本体の外向き通信制限を確認する
+## 16. Cowrie本体の外向き通信制限を確認する
 
 作業場所: サーバーSSH
 
@@ -649,7 +686,7 @@ OK: outbound connection was blocked.
 sudo docker compose down
 ```
 
-## 16. Python分析環境を作る
+## 17. Python分析環境を作る
 
 作業場所: サーバーSSH
 
@@ -703,7 +740,7 @@ sudo chown -R "$USER:$USER" data/public
 3. 外部端末からTCP 22番へ接続し、ログイン試行やコマンド入力を発生させる。
 4. それでも `cowrie.json` が作成されない場合は、CowrieのJSONログ設定とログマウント設定を確認する。
 
-## 17. 停止手順
+## 18. 停止手順
 
 作業場所: サーバーSSH、またはWeb画面
 
@@ -724,7 +761,7 @@ Web画面で即時遮断する場合:
 - LightsailファイアウォールからTCP 22番のルールを削除する。
 - 必要に応じてインスタンスを停止する。
 
-## 18. 復旧手順
+## 19. 復旧手順
 
 作業場所: サーバーSSH
 
@@ -745,7 +782,7 @@ sudo ./scripts/verify_egress.sh
 - Cowrie本体から外へ出られない。
 - ログが残っている。
 
-## 19. 監視するもの
+## 20. 監視するもの
 
 作業場所: サーバーSSH、Web画面
 
@@ -767,7 +804,7 @@ Lightsail画面で確認する。
 - IPv6ファイアウォール
 - 不要ポートが開いていないこと
 
-## 20. 公開前の最終チェック
+## 21. 公開前の最終チェック
 
 作業場所: ローカルPC
 

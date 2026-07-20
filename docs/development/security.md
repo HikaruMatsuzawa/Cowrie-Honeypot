@@ -16,11 +16,12 @@
 - 確定: 実送信元IPを保持するため、Lightsail運用では `cowrie-ssh-proxy` を使わずCowrieコンテナを直接TCP 22番へ公開する。
 - 確定: 生ログ、秘密鍵、`.env`、AWS認証情報、取得ファイルはGitへコミットしない。
 - 確定: 公開用CSVではIPを匿名化し、パスワードを出力しない。
+- 確定: CowrieコンテナはDocker internal networkに置く。
+- 確定: Lightsailでは追加防御として、iptablesの `DOCKER-USER` chainでも外向き通信を遮断する。
 - 暫定: Lightsailの管理用SSHポートは `22222` を例とする。
-- 暫定: Cowrieコンテナの外向き通信制限はホスト側firewallで実装する。
 - 暫定: Dockerネットワークは固定サブネット化し、firewallルールの対象を安定させる。
 - 未決: 長期ログ保管、バックアップ、通知先、インスタンスサイズ。
-- 未決: 外向き通信制限の具体的なfirewall方式。候補はiptables、nftables、ufw、Docker `DOCKER-USER` chain。
+- 未決: OS再起動後にfirewallルールを永続化する方式。
 
 ## 必須対策
 
@@ -70,7 +71,7 @@ LightsailではインスタンスにIPv4用とIPv6用のファイアウォール
 
 実送信元IPを記録するため、Cowrieコンテナ自身をホスト側SSHポートへ直接公開する。TCP中継コンテナを使うと、Cowrieから見た接続元がproxyコンテナの内部IPになり、送信元IP分析の要件を満たせない。
 
-このため、Cowrie本体の外向き通信制限はDocker内部ネットワークではなく、ホスト側firewallで実装する。Dockerネットワークには固定サブネットを設定し、firewallルールの対象を安定させる。
+このため、Cowrie本体はDocker internal networkに置いて外向き通信を抑制する。Dockerネットワークには固定サブネットを設定し、firewallルールの対象を安定させる。Lightsail Ubuntuでは追加防御として、Dockerがユーザー定義ルール用に用意する `DOCKER-USER` chainへiptablesルールを追加する。
 
 検証は必須である。設定ファイルを見ただけでは完了としない。
 

@@ -76,7 +76,10 @@ def test_cli_analyze_output_permission_error_returns_message(tmp_path, capsys) -
         encoding="utf-8",
     )
 
-    with patch("cowrie_observer.cli.export_public_summary_csv", side_effect=PermissionError("denied")):
+    with patch(
+        "cowrie_observer.cli.export_public_summary_csv",
+        side_effect=PermissionError("denied"),
+    ):
         exit_code = main(["analyze", "--input", str(input_path), "--output", str(output_path)])
 
     captured = capsys.readouterr()

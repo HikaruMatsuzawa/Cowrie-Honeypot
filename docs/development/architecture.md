@@ -9,14 +9,15 @@
 - 確定: LightsailではCowrieコンテナをホスト側TCP 22番へ直接公開し、実送信元IPをCowrieログへ残す。
 - 確定: `cowrie-ssh-proxy` は実送信元IPを失うため、Lightsail運用構成から外す。
 - 確定: 生ログはGit管理外とする。
+- 確定: CowrieコンテナはDocker internal networkに置く。
+- 確定: Lightsailでは追加防御として、Dockerの `DOCKER-USER` chainにiptablesルールを追加する。
 - 暫定: LightsailのOSはUbuntu LTSとする。
 - 暫定: 管理用OpenSSHのポートは `22222` を例とする。
 - 暫定: Dockerネットワークは固定サブネットを使い、ホスト側firewallの対象を安定させる。
-- 暫定: Cowrie本体の外向き通信制限はホスト側firewallで実装する。
 - 未決: Lightsailのリージョン、インスタンスサイズ、ディスク容量。
 - 未決: 長期ログバックアップ方式。
 - 未決: 監視通知先。
-- 未決: 外向き通信制限に使う具体的なfirewall方式。候補はiptables、nftables、ufw、Docker `DOCKER-USER` chain。
+- 未決: firewallルールをOS再起動後に永続化する方式。
 
 ## ローカル構成
 
@@ -95,7 +96,7 @@ Cowrie本体は外部からのSSH接続を直接受ける。これにより、Co
 
 注意: `cowrie-ssh-proxy` でTCP接続を中継する構成では、Cowrieから見た接続元が実際の外部端末IPではなく、proxyコンテナの内部IPになる場合がある。そのため、Lightsail運用では `cowrie-ssh-proxy` を使わない。
 
-Cowrie本体から外部への通信は、Docker内部ネットワークではなくホスト側firewallで遮断する。具体方式は未決であり、Lightsail Ubuntu上で実通信を確認して確定する。
+Cowrie本体から外部への通信は、Docker internal networkで抑制する。Lightsail Ubuntuでは防御を重ねるため、Dockerが用意する `DOCKER-USER` chainにもiptablesルールを追加し、CowrieコンテナIPから外部への新規通信を拒否する。
 
 ## データ配置
 

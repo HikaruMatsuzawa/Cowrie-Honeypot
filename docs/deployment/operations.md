@@ -90,7 +90,7 @@ docker compose --env-file .env.lightsail.example config
 - 生ログ、`.env`、秘密鍵、実IP、AWS認証情報が差分に含まれていない。
 - Lightsail用環境変数では `cowrie` が `0.0.0.0:22` を公開する。
 - `cowrie-ssh-proxy` が構成に残っていない。
-- Dockerネットワークの固定サブネットとホスト側firewallによる外向き通信制限の手順が確認できる。
+- Docker internal network、固定サブネット、ホスト側firewallによる外向き通信制限の手順が確認できる。
 
 ## Lightsailインスタンス作成
 
@@ -187,6 +187,8 @@ Lightsailでは必要に応じて次を確認する。
 COWRIE_IMAGE=cowrie/cowrie:latest
 COWRIE_SSH_BIND_ADDRESS=0.0.0.0
 COWRIE_SSH_PORT=22
+COWRIE_NETWORK_SUBNET=172.30.0.0/24
+COWRIE_CONTAINER_IP=172.30.0.10
 TZ=UTC
 ```
 
@@ -217,6 +219,19 @@ sudo chown -R "${COWRIE_UID}:${COWRIE_GID}" logs/cowrie data/downloads
 sudo docker compose restart cowrie
 ```
 
+CowrieコンテナはDocker internal networkに置く。Lightsailでは追加防御として、Cowrieコンテナの外向き通信をホスト側firewallでも遮断する。
+
+```bash
+sudo ./scripts/cowrie_egress_firewall.sh apply
+sudo ./scripts/cowrie_egress_firewall.sh status
+sudo ./scripts/verify_egress.sh
+```
+
+正常な結果:
+
+- `cowrie-observer block cowrie outbound` を含むiptablesルールが表示される。
+- `OK: outbound connection was blocked.` が表示される。
+
 ## Lightsail受け入れ確認
 
 外部端末から確認する。
@@ -243,6 +258,7 @@ sudo docker compose exec -T cowrie /cowrie/cowrie-env/bin/python3 -c "print('ok'
 外向き通信制限を確認する。
 
 ```bash
+sudo ./scripts/cowrie_egress_firewall.sh status
 sudo ./scripts/verify_egress.sh
 ```
 
