@@ -63,7 +63,8 @@ docker compose down
 
 正常な結果:
 
-- `cowrie` と `cowrie-ssh-proxy` が起動する。
+- `cowrie` が起動する。
+- `cowrie-ssh-proxy` は起動しない。
 - `127.0.0.1:2222` に接続できる。
 - SSHログイン試行とコマンド入力がCowrieログに記録される。
 - CSVが生成される。
@@ -102,8 +103,10 @@ sudo docker compose ps
 正常な結果:
 
 - `cowrie` が起動している。
-- `cowrie-ssh-proxy` が `0.0.0.0:22->2222/tcp` を公開している。
-- `cowrie` 本体は直接ホストポートを公開していない。
+- Cowrieコンテナ自身が `0.0.0.0:22->2222/tcp` を公開している。
+- `cowrie-ssh-proxy` は起動していない。
+- Dockerネットワークに固定サブネットが設定されている。
+- Cowrieコンテナの外向き通信を遮断するホスト側firewallが設定されている。
 
 外部端末からの確認:
 
@@ -128,15 +131,18 @@ ls -l logs/cowrie
 正常な結果:
 
 - 外部端末からの接続がCowrieログへ記録されている。
+- Cowrie JSONログの `src_ip` に外部端末の実送信元IPが記録されている。
+- `src_ip` がDocker内部IPやproxyコンテナIPだけになっていない。
 - コンテナ再作成後もログが残る。
 - 偽シェル内で入力した `whoami`、`uname -a`、`ls` などのコマンドがCowrieログへ記録される。
 - `curl http://example.com` のような外向き通信は失敗し、Cowrieログに通信ブロックが記録される。
 
-現時点の注意:
+失敗条件:
 
-- `cowrie-ssh-proxy` を経由する構成では、Cowrieログ上の送信元IPが外部端末の実IPではなくDocker内部IPになる場合がある。
-- AWS受け入れテストでは、この制約を記録する。
-- 送信元IP別分析を本番運用の成功条件に含める場合は、送信元IPを保持する設計を確定してから再テストする。
+- Cowrieログ上の `src_ip` がDocker内部IPだけになる。
+- 偽シェル内の `curl http://example.com` が外部へ成功する。
+- 管理用OpenSSHがTCP 22番で待ち受けている。
+- TCP 22222などの管理用ポートが任意のIPv4へ公開されている。
 
 外向き通信制限:
 
@@ -150,7 +156,7 @@ ls -l logs/cowrie
 OK: outbound connection was blocked.
 ```
 
-確認対象は `cowrie` 本体であり、`cowrie-ssh-proxy` ではない。
+確認対象は `cowrie` 本体である。
 
 ## 公開前チェック
 

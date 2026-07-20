@@ -402,4 +402,34 @@ Step 13「AWS Lightsail」を実施してください。AWSリソース作成や
 
 コミットメッセージ例: `docs: Lightsailデプロイ手順を整理`
 
-次のStepへ進む条件: このStepが最終Stepである。次は人間によるLightsail手動デプロイ、または追加Issue計画へ進む。
+次のStepへ進む条件: 人間が実送信元IP保持対応へ進むことを承認する。
+
+## Step 14: 実送信元IP保持対応
+
+目的: Cowrieログの `src_ip` に実際の外部送信元IPを記録しつつ、Cowrieコンテナから外部への通信を遮断する。
+
+前提条件: LightsailでCowrieの基本公開、管理用OpenSSHの22222番移動、ログ永続化、外向き通信制限の課題が確認済みである。
+
+参照する仕様書: `docs/development/requirements.md`, `docs/development/architecture.md`, `docs/development/security.md`, `docs/development/test-plan.md`, `docs/deployment/operations.md`, `docs/deployment/lightsail-setup.md`
+
+Codexへ入力するプロンプト:
+
+```text
+Step 14「実送信元IP保持対応」を実施してください。まずテスト計画と設計差分を確認し、`cowrie-ssh-proxy` を使わずCowrieコンテナ自身をホスト側TCP 22番へ直接公開する構成へ変更してください。Dockerネットワークは固定サブネット化し、Cowrieコンテナから外部への通信はホスト側firewallで遮断できるようにしてください。ローカルではインターネットへ公開せず `127.0.0.1:2222` のみで確認できる状態を維持してください。AWSリソースやLightsail設定はCodexから変更せず、人間が実行する手順だけを文書化してください。
+```
+
+変更してよい範囲: `compose.yaml`, `.env.example`, `.env.lightsail.example`, `scripts/`, `tests/`, `docs/`, `README.md`
+
+変更してはいけない範囲: AWSリソース作成、AWS CLI実行、Lightsailファイアウォール変更、管理用OpenSSH設定の自動変更、秘密情報、生ログ、実IPを含むfixture
+
+実行するテストまたは確認コマンド: `docker compose config`, `docker compose --env-file .env.lightsail.example config`, `pytest`, `ruff check .`, `mypy src`, ローカルSSH接続確認、外向き通信確認、公開NG文字列の検索
+
+正常な結果: ローカル構成は `127.0.0.1:2222->2222/tcp` のみを公開し、Lightsail用構成はCowrieコンテナ自身が `0.0.0.0:22->2222/tcp` を公開する。`cowrie-ssh-proxy` は起動しない。
+
+人間が確認するポイント: LightsailでCowrie JSONログの `src_ip` が実外部IPになること、偽シェル内の `curl http://example.com` が失敗すること、管理用OpenSSHが22番で待ち受けていないこと。
+
+完了条件: ローカル確認、文書更新、公開前チェックが完了し、Lightsailで人間が検証できる手順がコミットされている。
+
+コミットメッセージ例: `security: Cowrieの実送信元IP保持構成へ変更`
+
+次のStepへ進む条件: Lightsail上で `src_ip` と外向き通信制限の両方が受け入れ確認済みである。

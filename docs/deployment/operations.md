@@ -15,9 +15,12 @@ CodexはAWSリソース作成、Lightsail設定変更、SSH設定変更、ファ
 - 確定: 管理用OpenSSHはTCP 22番以外へ移動し、管理者IPからのみ許可する。
 - 確定: LightsailへのデプロイはGitHubからcloneしたリポジトリを使う。
 - 確定: 生ログ、`.env`、秘密鍵、AWS認証情報はGitへコミットしない。
+- 確定: LightsailではCowrieコンテナ自身をTCP 22番へ直接公開し、実送信元IPをログへ残す。
+- 確定: `cowrie-ssh-proxy` は実送信元IPを失うため、Lightsail運用では使わない。
 - 暫定: LightsailのOSはUbuntu LTSを想定する。
 - 暫定: 管理用OpenSSHの待ち受けポートは `22222` を例とする。
-- 暫定: Cowrie本体はDocker内部ネットワーク、`cowrie-ssh-proxy` は公開ポート中継用コンテナとする。
+- 暫定: Cowrieコンテナの外向き通信制限はホスト側firewallで実装する。
+- 暫定: Dockerネットワークは固定サブネット化する。
 - 未決: Lightsailのインスタンスサイズ、リージョン、ディスク容量、ログ保存期間。
 - 未決: 長期運用時のログバックアップ先。
 - 未決: 監視通知先と通知方法。
@@ -34,8 +37,8 @@ docker compose ps
 
 正常な結果:
 
-- `cowrie` と `cowrie-ssh-proxy` が起動している。
-- `cowrie-ssh-proxy` だけが `127.0.0.1:2222` を公開している。
+- `cowrie` が起動している。
+- `cowrie` だけが `127.0.0.1:2222` を公開している。
 
 ### 疎通確認
 
@@ -85,8 +88,9 @@ docker compose --env-file .env.lightsail.example config
 
 - コミット漏れがない。
 - 生ログ、`.env`、秘密鍵、実IP、AWS認証情報が差分に含まれていない。
-- Lightsail用環境変数では `cowrie-ssh-proxy` が `0.0.0.0:22` を公開する。
-- `cowrie` 本体は直接ホストポートを公開しない。
+- Lightsail用環境変数では `cowrie` が `0.0.0.0:22` を公開する。
+- `cowrie-ssh-proxy` が構成に残っていない。
+- Dockerネットワークの固定サブネットとホスト側firewallによる外向き通信制限の手順が確認できる。
 
 ## Lightsailインスタンス作成
 
@@ -199,7 +203,8 @@ sudo docker compose ps
 正常な結果:
 
 - `cowrie` が起動している。
-- `cowrie-ssh-proxy` が `0.0.0.0:22->2222/tcp` を公開している。
+- `cowrie` が `0.0.0.0:22->2222/tcp` を公開している。
+- `cowrie-ssh-proxy` は起動していない。
 - OpenSSHは22番ではなく管理用ポートで待ち受けている。
 
 ## Lightsail受け入れ確認
@@ -213,6 +218,8 @@ ssh -p 22 root@<LIGHTSAIL_STATIC_IP>
 正常な結果:
 
 - 接続先は管理用OpenSSHではなくCowrieである。
+- Cowrie JSONログの `src_ip` に外部端末の実送信元IPが記録される。
+- `src_ip` がDocker内部IPやproxyコンテナIPだけになっていない。
 - ログイン試行や入力コマンドがCowrieログへ記録される。
 
 サーバー上で確認する。
@@ -229,7 +236,7 @@ sudo docker compose exec -T cowrie /cowrie/cowrie-env/bin/python3 -c "print('ok'
 ./scripts/verify_egress.sh
 ```
 
-確認対象は `cowrie` 本体であり、`cowrie-ssh-proxy` ではない。
+確認対象は `cowrie` 本体である。
 
 ## ログ分析
 
@@ -252,7 +259,7 @@ sudo docker compose down
 緊急停止:
 
 ```bash
-sudo docker stop cowrie-ssh-proxy cowrie-observer
+sudo docker stop cowrie-observer
 ```
 
 Lightsail側で即時遮断する場合:
@@ -279,8 +286,9 @@ Lightsail側で即時遮断する場合:
 - ディスク使用率
 - `logs/cowrie/` の容量
 - Cowrieコンテナの起動状態
-- `cowrie-ssh-proxy` の起動状態
+- Cowrieコンテナの起動状態
 - TCP 22番がCowrieへ到達すること
+- Cowrieログの `src_ip` に実送信元IPが記録されること
 - 管理用OpenSSHが管理者IPからのみ接続できること
 - IPv6側に意図しない開放がないこと
 - Cowrie本体から外部通信できないこと

@@ -6,16 +6,17 @@
 - 確定: ローカルでは `127.0.0.1:2222` だけをSSH確認用に使う。
 - 確定: LightsailではTCP 22番をCowrie観測用SSHとして扱う。
 - 確定: 管理用OpenSSHはTCP 22番以外へ移動する。
-- 確定: Cowrie本体はDocker内部ネットワークに置く。
-- 確定: ホスト側ポートは `cowrie-ssh-proxy` でCowrieへ中継する。
+- 確定: LightsailではCowrieコンテナをホスト側TCP 22番へ直接公開し、実送信元IPをCowrieログへ残す。
+- 確定: `cowrie-ssh-proxy` は実送信元IPを失うため、Lightsail運用構成から外す。
 - 確定: 生ログはGit管理外とする。
 - 暫定: LightsailのOSはUbuntu LTSとする。
 - 暫定: 管理用OpenSSHのポートは `22222` を例とする。
-- 暫定: 現在の `cowrie-ssh-proxy` 構成では、Cowrieログ上の送信元IPがproxyコンテナの内部IPになる場合がある。
+- 暫定: Dockerネットワークは固定サブネットを使い、ホスト側firewallの対象を安定させる。
+- 暫定: Cowrie本体の外向き通信制限はホスト側firewallで実装する。
 - 未決: Lightsailのリージョン、インスタンスサイズ、ディスク容量。
 - 未決: 長期ログバックアップ方式。
 - 未決: 監視通知先。
-- 未決: Cowrie本体の外向き通信制限を維持したまま、実際の外部送信元IPをログへ保持する方式。
+- 未決: 外向き通信制限に使う具体的なfirewall方式。候補はiptables、nftables、ufw、Docker `DOCKER-USER` chain。
 
 ## ローカル構成
 
@@ -23,10 +24,6 @@
 Windows PC
   |
   | 127.0.0.1:2222
-  v
-cowrie-ssh-proxy
-  |
-  | Docker internal network
   v
 Cowrie container:2222
   |
@@ -57,13 +54,13 @@ Internet
   v
 Lightsail instance
   |
-  | Docker published port
-  v
-cowrie-ssh-proxy
-  |
-  | Docker internal network
+  | Docker published port 0.0.0.0:22 -> 2222
   v
 Cowrie container:2222
+  |
+  | outbound traffic blocked by host firewall
+  x
+Internet
 
 Administrator
   |
@@ -92,12 +89,13 @@ sudo docker compose up -d
 
 | サービス | 役割 | ホスト公開 |
 | --- | --- | --- |
-| `cowrie` | Cowrie本体、ログ生成 | なし |
-| `cowrie-ssh-proxy` | ホスト側SSHポートからCowrieへ中継 | ローカルまたはLightsail用ポート |
+| `cowrie` | Cowrie本体、ログ生成、SSH観測 | ローカルでは `127.0.0.1:2222`、Lightsailでは `0.0.0.0:22` |
 
-Cowrie本体はDocker内部ネットワークにのみ接続し、外部へ直接通信できない状態を目標とする。
+Cowrie本体は外部からのSSH接続を直接受ける。これにより、Cowrieログの `src_ip` に実際の外部送信元IPを残す。
 
-注意: `cowrie-ssh-proxy` でTCP接続を中継する構成では、Cowrieから見た接続元が実際の外部端末IPではなく、proxyコンテナの内部IPになる場合がある。認証試行や入力コマンドの観測は可能だが、送信元IP別の分析をAWS運用で正しく行うには、送信元IPを保持できる構成を別途確定する。
+注意: `cowrie-ssh-proxy` でTCP接続を中継する構成では、Cowrieから見た接続元が実際の外部端末IPではなく、proxyコンテナの内部IPになる場合がある。そのため、Lightsail運用では `cowrie-ssh-proxy` を使わない。
+
+Cowrie本体から外部への通信は、Docker内部ネットワークではなくホスト側firewallで遮断する。具体方式は未決であり、Lightsail Ubuntu上で実通信を確認して確定する。
 
 ## データ配置
 

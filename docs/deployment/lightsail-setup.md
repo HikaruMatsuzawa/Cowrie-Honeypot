@@ -9,7 +9,8 @@
 - 管理用OpenSSHはTCP 22番で公開しない。
 - 管理用OpenSSHは管理者IPからのみ接続できる。
 - インターネットからTCP 22番へ接続するとCowrieへ到達する。
-- Cowrie本体はDocker内部ネットワークに置き、外向き通信できない。
+- CowrieコンテナがTCP 22番を直接受け、Cowrieログへ実送信元IPを記録する。
+- Cowrieコンテナから外部への通信はホスト側firewallで遮断する。
 - HTTP、HTTPS、Telnetなど不要なポートは開けない。
 - IPv6を使わない場合は、IPv6側も閉じる。
 - 生ログ、秘密鍵、`.env`、実IPをGitへ載せない。
@@ -494,9 +495,10 @@ sudo docker compose config
 
 確認ポイント:
 
-- `cowrie-ssh-proxy` が `0.0.0.0:22->2222/tcp` を公開する。
-- `cowrie` 本体はホストポートを直接公開していない。
-- `cowrie-net` が `internal: true` になっている。
+- `cowrie` が `0.0.0.0:22->2222/tcp` を公開する。
+- `cowrie-ssh-proxy` が構成に残っていない。
+- Dockerネットワークに固定サブネットが設定されている。
+- Cowrieコンテナの外向き通信を遮断するホスト側firewallの手順が準備されている。
 - `logs/cowrie/` と `data/downloads/` がホスト側へマウントされている。
 
 ## 12. Cowrieを起動する
@@ -511,8 +513,8 @@ sudo docker compose ps
 正常な結果:
 
 - `cowrie` が起動している。
-- `cowrie-ssh-proxy` が起動している。
-- `cowrie-ssh-proxy` がTCP 22番を公開している。
+- `cowrie-ssh-proxy` は起動していない。
+- `cowrie` がTCP 22番を公開している。
 
 ログを確認する。
 
@@ -549,6 +551,8 @@ exit
 - 接続先が本物の管理用OpenSSHではなくCowrieである。
 - 管理用ユーザー `ubuntu` の本物のシェルに入っていない。
 - 入力した内容がCowrieログに記録される。
+- Cowrie JSONログの `src_ip` に外部端末の実送信元IPが記録される。
+- `src_ip` がDocker内部IPやproxyコンテナIPだけになっていない。
 - `curl http://example.com` は名前解決や外向き通信に失敗してよい。Cowrie本体の外向き通信制限が効いていることを示す。
 
 サーバー側でログを確認する。
@@ -573,9 +577,9 @@ Attempt to access blocked network address
 
 注意:
 
-- 現在の `cowrie-ssh-proxy` 構成では、Cowrieログ上の接続元IPが外部端末の実IPではなく、Docker内部のproxyコンテナIPとして記録される場合がある。
-- コマンド観測、認証試行観測、外向き通信制限の確認はできる。
-- 送信元IPを実攻撃元として分析する運用は、送信元IPを保持する設計を追加で確定してから行う。
+- 実送信元IPを確認するため、`cowrie-ssh-proxy` のようなTCP中継コンテナは使わない。
+- 実送信元IPを含む生ログはGitへコミットしない。
+- 公開用CSVでは送信元IPを匿名化する。
 
 ## 14. 管理用OpenSSHが22番で公開されていないことを確認する
 
@@ -660,7 +664,7 @@ sudo docker compose down
 緊急停止:
 
 ```bash
-sudo docker stop cowrie-ssh-proxy cowrie-observer
+sudo docker stop cowrie-observer
 ```
 
 Web画面で即時遮断する場合:
