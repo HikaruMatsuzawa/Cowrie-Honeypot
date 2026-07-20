@@ -6,7 +6,7 @@
 
 ## 設計上の選択
 
-- 確定: Cowrieは低対話型SSHハニーポットとして使用する。
+- 確定: Cowrieは低対話型SSH/Telnetハニーポットとして使用する。
 - 確定: 管理用OpenSSHをインターネット全体へ公開しない。
 - 確定: LightsailではTCP 22番をCowrie観測用SSHとして扱う。
 - 確定: LightsailではTCP 23番をCowrie観測用Telnetとして扱う。

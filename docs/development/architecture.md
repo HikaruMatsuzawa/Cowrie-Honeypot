@@ -106,7 +106,7 @@ Cowrie本体から外部への通信は、Lightsail Ubuntu上の `DOCKER-USER` c
 | パス | 用途 | Git管理 |
 | --- | --- | --- |
 | `logs/cowrie/` | Cowrie生ログ、JSONログ、TTYログ。実IP、入力ユーザー名、入力パスワード、入力コマンドを含む | しない |
-| `data/downloads/` | 攻撃者が偽シェル内で取得しようとしたファイル、またはCowrieが保存した取得物 | しない |
+| `data/downloads/` | Cowrieが実際に保存した取得物。コマンド入力から推測した一覧ではない | しない |
 | `data/public/` | 公開用CSVなどの分析生成物 | しない |
 | `tests/fixtures/` | 合成テストデータ | する |
 | `.env` | 実環境設定 | しない |

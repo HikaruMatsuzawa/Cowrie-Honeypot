@@ -35,7 +35,7 @@
 3. サーバーへSSHログインする。
 4. サーバー側のOpenSSHを22番以外へ移す。
 5. 新しい管理用SSHポートでログインできることを確認する。
-6. Web画面でファイアウォールを最終形にする。
+6. Web画面でファイアウォールを最終形にし、Cowrie用SSH 22番とTelnet 23番を同時に設定する。
 7. サーバーへDocker EngineとDocker Compose pluginを入れる。
 8. GitHubからリポジトリをcloneする。
 9. Lightsail用 `.env` を作成する。
@@ -335,6 +335,7 @@ sudo ss -ltnp | grep sshd
 作業場所: Web画面
 
 22222番で管理ログインできることを確認できたら、22番をCowrie用にする。
+この段階で、Cowrie用SSH 22番とCowrie用Telnet 23番をまとめて設定する。Telnetを後から追加する前提にせず、このStepの完了時点でSSHとTelnetの両方がLightsailファイアウォール上で許可されている状態にする。
 
 ### IPv4ファイアウォールの最終形
 
@@ -527,6 +528,34 @@ sudo docker compose ps
 - `cowrie` がTCP 22番とTCP 23番を公開している。
 - Cowrie本体がTelnetを有効化している。
 
+ポート公開を確認する。
+
+```bash
+sudo docker port cowrie-observer
+sudo ss -ltnp | grep -E ':22|:23|:22222'
+```
+
+正常な結果:
+
+```text
+2222/tcp -> 0.0.0.0:22
+2223/tcp -> 0.0.0.0:23
+```
+
+Cowrieコンテナ内でTelnet 2223番が待ち受けていることも確認する。
+
+```bash
+sudo docker run --rm --network cowrie-honeypot_cowrie-net alpine sh -c "nc -vz -w 3 172.30.0.10 2223; echo exit_code=\$?"
+```
+
+正常な結果:
+
+```text
+exit_code=0
+```
+
+`exit_code=1` の場合、Dockerは23番を公開していてもCowrie本体のTelnetが有効になっていない可能性がある。`.env` と `sudo docker compose config` で `COWRIE_TELNET_ENABLED=yes` を確認し、Cowrieを再起動する。
+
 ログを確認する。
 
 ```bash
@@ -535,7 +564,7 @@ sudo docker compose logs --tail=50 cowrie
 
 正常な結果:
 
-- CowrieがSSH接続を受け付ける状態になっている。
+- CowrieがSSHとTelnet接続を受け付ける状態になっている。
 
 ### ログ保存ディレクトリの権限を確認する
 
@@ -854,8 +883,10 @@ data/public/*
 | パス | 内容 | 注意 |
 | --- | --- | --- |
 | `logs/cowrie/*` | Cowrieの生ログ、JSONログ、TTYログ | 実IP、入力ユーザー名、入力パスワード、入力コマンドを含む |
-| `data/downloads/*` | 攻撃者が偽シェル内で取得しようとしたファイル、またはCowrieが保存した取得物 | マルウェア疑いのファイルを含む可能性があるため、開かない、実行しない |
+| `data/downloads/*` | Cowrieが実際に保存した取得物 | マルウェア疑いのファイルを含む可能性があるため、開かない、実行しない |
 | `data/public/*` | `summary.csv` などの分析結果 | 削除後に分析コマンドで再生成する |
+
+`wget` や `curl` などの入力コマンドは `logs/cowrie/` に記録される。`data/downloads/` はコマンドから推測した一覧ではなく、Cowrieがファイルとして保存した取得物の置き場である。
 
 削除しないもの:
 
