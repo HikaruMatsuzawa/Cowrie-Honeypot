@@ -46,7 +46,17 @@ def _run_analyze(input_path: Path, output_path: Path) -> int:
     parse_result = parse_json_lines(input_path)
     events = normalize_events(parse_result.events)
     summary = summarize_events(events)
-    export_public_summary_csv(summary, output_path)
+    try:
+        export_public_summary_csv(summary, output_path)
+    except PermissionError as exc:
+        print(
+            f"Cannot write output file: {output_path}\n"
+            f"{exc}\n"
+            "Confirm that the output directory is writable by the current user.",
+            file=sys.stderr,
+        )
+        return 1
+
     return 0
 
 

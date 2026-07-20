@@ -1,5 +1,6 @@
 import csv
 import json
+from unittest.mock import patch
 
 from cowrie_observer.cli import main
 
@@ -59,3 +60,26 @@ def test_cli_analyze_missing_input_returns_error(tmp_path, capsys) -> None:
     assert exit_code == 1
     assert "Input log file not found" in captured.err
     assert not output_path.exists()
+
+
+def test_cli_analyze_output_permission_error_returns_message(tmp_path, capsys) -> None:
+    input_path = tmp_path / "cowrie.jsonl"
+    output_path = tmp_path / "summary.csv"
+    input_path.write_text(
+        json.dumps(
+            {
+                "eventid": "cowrie.session.connect",
+                "timestamp": "2026-01-01T00:00:00Z",
+                "src_ip": "192.0.2.10",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("cowrie_observer.cli.export_public_summary_csv", side_effect=PermissionError("denied")):
+        exit_code = main(["analyze", "--input", str(input_path), "--output", str(output_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Cannot write output file" in captured.err
+    assert "output directory is writable" in captured.err
