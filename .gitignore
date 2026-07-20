@@ -29,3 +29,6 @@ venv/
 .DS_Store
 Thumbs.db
 mymemo.md
+
+# ハニーポットからダウンロードした cowrie.json を分析のために保存するフォルダ
+downloaded_data
