@@ -7,6 +7,7 @@
 - 初期運用ではSSHを観測対象とし，SSH構成と外向き通信制限が確認できた後にTelnetも観測対象へ追加する．
 - インターネットからTCP 22番へ届く接続をCowrieへ到達させる．
 - Telnetを有効化する場合，インターネットからTCP 23番へ届く接続をCowrieへ到達させる．
+- Telnetを公開する場合，Dockerのポート公開だけでなくCowrie本体のTelnet機能を `COWRIE_TELNET_ENABLED=yes` で有効化する．
 - Lightsail運用では，Cowrieログの `src_ip` に実際の外部送信元IPが記録されること．
 - Docker内部のproxyコンテナIPやNAT用の内部IPだけが `src_ip` として記録される構成は，送信元IP分析の受け入れ条件を満たさない．
 - 試行されたユーザー名，パスワード，セッション，入力コマンド，SSHクライアント情報，ダウンロード試行URL，接続時間，切断理由をログとして扱えること．

@@ -8,6 +8,7 @@ services:
       - "${COWRIE_TELNET_BIND_ADDRESS:-127.0.0.1}:${COWRIE_TELNET_PORT:-2223}:2223"
     environment:
       TZ: ${TZ:-UTC}
+      COWRIE_TELNET_ENABLED: ${COWRIE_TELNET_ENABLED:-yes}
     networks:
       cowrie-net:
         ipv4_address: ${COWRIE_CONTAINER_IP:-172.30.0.10}

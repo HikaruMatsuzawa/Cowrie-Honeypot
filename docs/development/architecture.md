@@ -44,6 +44,7 @@ docker compose up -d
 | ポート | 用途 | 公開範囲 |
 | --- | --- | --- |
 | TCP 2222 | ローカルCowrie確認 | `127.0.0.1` のみ |
+| TCP 2223 | ローカルCowrie Telnet確認 | `127.0.0.1` のみ |
 | TCP 22 | 使用しない | 公開しない |
 | TCP 23 | 使用しない | 公開しない |
 
@@ -52,13 +53,14 @@ docker compose up -d
 ```text
 Internet
   |
-  | TCP 22
+  | TCP 22 / TCP 23
   v
 Lightsail instance
   |
   | Docker published port 0.0.0.0:22 -> 2222
+  | Docker published port 0.0.0.0:23 -> 2223
   v
-Cowrie container:2222
+Cowrie container:2222 / 2223
   |
   | outbound traffic blocked by host firewall
   x

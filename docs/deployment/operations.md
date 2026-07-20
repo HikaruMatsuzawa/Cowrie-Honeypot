@@ -189,6 +189,7 @@ COWRIE_SSH_BIND_ADDRESS=0.0.0.0
 COWRIE_SSH_PORT=22
 COWRIE_TELNET_BIND_ADDRESS=0.0.0.0
 COWRIE_TELNET_PORT=23
+COWRIE_TELNET_ENABLED=yes
 COWRIE_NETWORK_SUBNET=172.30.0.0/24
 COWRIE_CONTAINER_IP=172.30.0.10
 TZ=UTC
@@ -208,6 +209,7 @@ sudo docker compose ps
 
 - `cowrie` が起動している。
 - `cowrie` が `0.0.0.0:22->2222/tcp` と `0.0.0.0:23->2223/tcp` を公開している。
+- `cowrie` の環境変数に `COWRIE_TELNET_ENABLED=yes` が含まれる。
 - `cowrie-ssh-proxy` は起動していない。
 - OpenSSHは22番ではなく管理用ポートで待ち受けている。
 
