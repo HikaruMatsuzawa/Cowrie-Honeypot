@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     ports:
       - "${COWRIE_SSH_BIND_ADDRESS:-127.0.0.1}:${COWRIE_SSH_PORT:-2222}:2222"
+      - "${COWRIE_TELNET_BIND_ADDRESS:-127.0.0.1}:${COWRIE_TELNET_PORT:-2223}:2223"
     environment:
       TZ: ${TZ:-UTC}
     networks:

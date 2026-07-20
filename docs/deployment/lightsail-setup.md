@@ -9,9 +9,10 @@
 - 管理用OpenSSHはTCP 22番で公開しない。
 - 管理用OpenSSHは管理者IPからのみ接続できる。
 - インターネットからTCP 22番へ接続するとCowrieへ到達する。
+- インターネットからTCP 23番へ接続するとCowrie Telnetへ到達する。
 - CowrieコンテナがTCP 22番を直接受け、Cowrieログへ実送信元IPを記録する。
 - Cowrieコンテナから外部への通信はホスト側firewallで遮断する。
-- HTTP、HTTPS、Telnetなど不要なポートは開けない。
+- HTTP、HTTPSなど不要なポートは開けない。
 - IPv6を使わない場合は、IPv6側も閉じる。
 - 生ログ、秘密鍵、`.env`、実IPをGitへ載せない。
 
@@ -56,6 +57,7 @@
 | 管理用Linuxユーザー | `ubuntu` |
 | 管理用OpenSSHポート | `22222` |
 | Cowrie公開ポート | `22` |
+| Cowrie Telnet公開ポート | `23` |
 | リポジトリURL | `<PUBLIC_REPOSITORY_URL>` |
 | Lightsail静的IP | `<LIGHTSAIL_STATIC_IP>` |
 | 管理者IP | `<YOUR_GLOBAL_IP>/32` |
@@ -339,17 +341,19 @@ sudo ss -ltnp | grep sshd
 | 用途 | プロトコル | ポート | 接続元 |
 | --- | --- | --- | --- |
 | Cowrie観測用SSH | TCP | 22 | 任意のIPv4アドレス |
+| Cowrie観測用Telnet | TCP | 23 | 任意のIPv4アドレス |
 | 管理用OpenSSH | TCP | 22222 | `<YOUR_GLOBAL_IP>/32` |
 
 画面操作:
 
 1. `IPv4 ファイアウォール` の `SSH / TCP / 22` の行を確認する。
 2. この時点では22番はCowrie用にするため、接続元を `任意のIPv4アドレス` にする。
-3. `カスタム / TCP / 22222` の行を確認する。
-4. 22222番の接続元は `<YOUR_GLOBAL_IP>/32` のままにする。
-5. `HTTP / TCP / 80` が残っていたら削除する。
-6. `HTTPS / TCP / 443` や `Telnet / TCP / 23` があれば削除する。
-7. その他、用途が説明できないルールは削除する。
+3. `ルールを追加` で `カスタム / TCP / 23 / 任意のIPv4アドレス` を追加する。
+4. `カスタム / TCP / 22222` の行を確認する。
+5. 22222番の接続元は `<YOUR_GLOBAL_IP>/32` のままにする。
+6. `HTTP / TCP / 80` が残っていたら削除する。
+7. `HTTPS / TCP / 443` があれば削除する。
+8. その他、用途が説明できないルールは削除する。
 
 ### IPv6ファイアウォールの最終形
 
@@ -366,7 +370,7 @@ sudo ss -ltnp | grep sshd
 - 管理用OpenSSHは管理者IPからのみ接続できる。
 - 管理用OpenSSHを `0.0.0.0/0` へ開けていない。
 - TCP 22番はCowrie用として開ける。
-- TCP 23番は開けない。
+- TCP 23番はCowrie Telnet用として開ける。
 - TCP 80番は開けない。
 - IPv6側に `SSH / TCP / 22 / 任意のIPv6アドレス` や `HTTP / TCP / 80 / 任意のIPv6アドレス` が残っていない。
 
@@ -476,6 +480,8 @@ sed -n '1,120p' .env
 COWRIE_IMAGE=cowrie/cowrie:latest
 COWRIE_SSH_BIND_ADDRESS=0.0.0.0
 COWRIE_SSH_PORT=22
+COWRIE_TELNET_BIND_ADDRESS=0.0.0.0
+COWRIE_TELNET_PORT=23
 COWRIE_NETWORK_SUBNET=172.30.0.0/24
 COWRIE_CONTAINER_IP=172.30.0.10
 TZ=UTC
@@ -497,7 +503,7 @@ sudo docker compose config
 
 確認ポイント:
 
-- `cowrie` が `0.0.0.0:22->2222/tcp` を公開する。
+- `cowrie` が `0.0.0.0:22->2222/tcp` と `0.0.0.0:23->2223/tcp` を公開する。
 - `cowrie-ssh-proxy` が構成に残っていない。
 - Dockerネットワークに固定サブネットが設定されている。
 - Cowrieコンテナの外向き通信を遮断するホスト側firewallの手順が準備されている。
@@ -516,7 +522,7 @@ sudo docker compose ps
 
 - `cowrie` が起動している。
 - `cowrie-ssh-proxy` は起動していない。
-- `cowrie` がTCP 22番を公開している。
+- `cowrie` がTCP 22番とTCP 23番を公開している。
 
 ログを確認する。
 
@@ -656,6 +662,14 @@ Attempt to access blocked network address
 - 実送信元IPを確認するため、`cowrie-ssh-proxy` のようなTCP中継コンテナは使わない。
 - 実送信元IPを含む生ログはGitへコミットしない。
 - 公開用CSVでは送信元IPを匿名化する。
+
+Telnetも確認する。
+
+```bash
+telnet <LIGHTSAIL_STATIC_IP> 23
+```
+
+`telnet` コマンドがローカルPCにない場合は、別途Telnetクライアントを用意する。接続後、検証用のユーザー名やパスワードを入力し、CowrieログにTelnet接続が記録されることを確認する。
 
 ## 15. 管理用OpenSSHが22番で公開されていないことを確認する
 

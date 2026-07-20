@@ -104,6 +104,7 @@ sudo docker compose ps
 
 - `cowrie` が起動している。
 - Cowrieコンテナ自身が `0.0.0.0:22->2222/tcp` を公開している。
+- Cowrieコンテナ自身が `0.0.0.0:23->2223/tcp` を公開している。
 - `cowrie-ssh-proxy` は起動していない。
 - Dockerネットワークに固定サブネットが設定されている。
 - `sudo ./scripts/cowrie_egress_firewall.sh status` で、Cowrieコンテナの外向き通信を遮断する `DOCKER-USER` chainのルールが表示される。
@@ -112,12 +113,14 @@ sudo docker compose ps
 
 ```bash
 ssh -p 22 root@<LIGHTSAIL_STATIC_IP>
+telnet <LIGHTSAIL_STATIC_IP> 23
 ssh -p 22222 ubuntu@<LIGHTSAIL_STATIC_IP>
 ```
 
 正常な結果:
 
 - 22番の接続先はCowrieである。
+- 23番の接続先もCowrieである。
 - 管理用ポートは管理者IPからのみ接続できる。
 - 管理者IP以外から管理用ポートへ接続できない。
 

@@ -5,6 +5,7 @@
 - 確定: ローカル環境ではCowrieをインターネットへ公開しない。
 - 確定: ローカルでは `127.0.0.1:2222` だけをSSH確認用に使う。
 - 確定: LightsailではTCP 22番をCowrie観測用SSHとして扱う。
+- 確定: LightsailではTCP 23番をCowrie観測用Telnetとして扱う。
 - 確定: 管理用OpenSSHはTCP 22番以外へ移動する。
 - 確定: LightsailではCowrieコンテナをホスト側TCP 22番へ直接公開し、実送信元IPをCowrieログへ残す。
 - 確定: `cowrie-ssh-proxy` は実送信元IPを失うため、Lightsail運用構成から外す。
@@ -82,15 +83,15 @@ sudo docker compose up -d
 | ポート | 用途 | 公開範囲 |
 | --- | --- | --- |
 | TCP 22 | Cowrie観測用SSH | 任意のIPv4 |
+| TCP 23 | Cowrie観測用Telnet | 任意のIPv4 |
 | TCP 22222 | 管理用OpenSSH | 管理者IP/32 |
-| TCP 23 | Telnet | 公開しない |
 | TCP 80/443 | Web | 公開しない |
 
 ## コンテナ構成
 
 | サービス | 役割 | ホスト公開 |
 | --- | --- | --- |
-| `cowrie` | Cowrie本体、ログ生成、SSH観測 | ローカルでは `127.0.0.1:2222`、Lightsailでは `0.0.0.0:22` |
+| `cowrie` | Cowrie本体、ログ生成、SSH/Telnet観測 | ローカルでは `127.0.0.1:2222` と `127.0.0.1:2223`、Lightsailでは `0.0.0.0:22` と `0.0.0.0:23` |
 
 Cowrie本体は外部からのSSH接続を直接受ける。これにより、Cowrieログの `src_ip` に実際の外部送信元IPを残す。
 

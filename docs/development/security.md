@@ -9,6 +9,7 @@
 - 確定: Cowrieは低対話型SSHハニーポットとして使用する。
 - 確定: 管理用OpenSSHをインターネット全体へ公開しない。
 - 確定: LightsailではTCP 22番をCowrie観測用SSHとして扱う。
+- 確定: LightsailではTCP 23番をCowrie観測用Telnetとして扱う。
 - 確定: 管理用OpenSSHはTCP 22番以外へ移動する。
 - 確定: 管理用OpenSSHの接続元は管理者IP/32に限定する。
 - 確定: Cowrie本体から外部への通信を遮断する。
@@ -26,7 +27,7 @@
 ## 必須対策
 
 - Cowrie以外の不要サービスをインターネットへ公開しない。
-- Telnet 23番は初期バージョンでは開けない。
+- Telnet 23番はCowrie観測用としてのみ開ける。
 - HTTP/HTTPSは初期バージョンでは開けない。
 - IPv6を使わない場合は無効化またはファイアウォールで閉じる。
 - LightsailのIPv4ファイアウォールとIPv6ファイアウォールを別々に確認する。
@@ -60,8 +61,8 @@ LightsailではインスタンスにIPv4用とIPv6用のファイアウォール
 | 用途 | ポート | 接続元 | 状態 |
 | --- | --- | --- | --- |
 | Cowrie観測用SSH | TCP 22 | 任意のIPv4 | 確定 |
+| Cowrie観測用Telnet | TCP 23 | 任意のIPv4 | 確定 |
 | 管理用OpenSSH | TCP 22222 | 管理者IP/32 | 暫定 |
-| Telnet | TCP 23 | なし | 確定 |
 | HTTP/HTTPS | TCP 80/443 | なし | 確定 |
 | その他 | 任意 | なし | 確定 |
 
