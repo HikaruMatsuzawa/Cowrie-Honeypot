@@ -669,7 +669,7 @@ python3 -m venv .venv
 集計する。
 
 ```bash
-mkdir -p data/public
+sudo mkdir -p data/public
 sudo chown -R "$USER:$USER" data/public
 ls -la logs/cowrie
 ./.venv/bin/python -m cowrie_observer.cli analyze --input logs/cowrie/cowrie.json --output data/public/summary.csv
@@ -692,7 +692,7 @@ sed -n '1,80p' data/public/summary.csv
 `Permission denied: 'data/public'` が出る場合:
 
 ```bash
-mkdir -p data/public
+sudo mkdir -p data/public
 sudo chown -R "$USER:$USER" data/public
 ```
 
