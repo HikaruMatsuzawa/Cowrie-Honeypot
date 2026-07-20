@@ -7,6 +7,8 @@ services:
       - "127.0.0.1:${COWRIE_LOCAL_SSH_PORT:-2222}:2222"
     environment:
       TZ: ${TZ:-UTC}
+    networks:
+      - cowrie-net
     volumes:
       - type: bind
         source: ./logs/cowrie
@@ -14,3 +16,7 @@ services:
       - type: bind
         source: ./data/downloads
         target: /cowrie/cowrie-git/var/lib/cowrie/downloads
+
+networks:
+  cowrie-net:
+    internal: true

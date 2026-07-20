@@ -25,6 +25,14 @@ docker compose config
 
 このコマンドは構成の静的確認に使用する．コンテナの起動は行わない．
 
+外向き通信制限の確認:
+
+```powershell
+.\scripts\verify_egress.ps1
+```
+
+この確認は，Cowrieコンテナ起動後に実行する．外部接続が拒否される場合を正常とする．外部接続が成功した場合は，Dockerネットワークまたはファイアウォール設定を見直す．
+
 ### AWS
 
 AWSではEC2上にDocker Compose環境を作成する想定とする．デプロイはGitHub上の公開リポジトリをcloneして行う．CodexはAWS上で自動実行せず，人間が内容を確認して手動実行する．
