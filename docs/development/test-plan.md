@@ -147,7 +147,7 @@ ls -l logs/cowrie
 外向き通信制限:
 
 ```bash
-./scripts/verify_egress.sh
+sudo ./scripts/verify_egress.sh
 ```
 
 正常な結果:

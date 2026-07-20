@@ -9,6 +9,13 @@ PYTHON_PATH="${PYTHON_PATH:-/cowrie/cowrie-env/bin/python3}"
 
 echo "Checking outbound connectivity from service '${SERVICE}' to ${TARGET_HOST}:${TARGET_PORT}"
 
+if ! docker compose ps >/dev/null 2>&1; then
+    echo "ERROR: cannot access Docker Compose or Docker API." >&2
+    echo "Run this script from the project root with Docker access." >&2
+    echo "On Lightsail, use: sudo ./scripts/verify_egress.sh" >&2
+    exit 2
+fi
+
 python_script=$(cat <<PY
 import socket
 import sys

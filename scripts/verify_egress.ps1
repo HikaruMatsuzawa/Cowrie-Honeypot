@@ -10,6 +10,12 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "Checking outbound connectivity from service '$Service' to $TargetHost`:$TargetPort"
 
+docker compose ps *> $null
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "ERROR: cannot access Docker Compose or Docker API. Run this script from the project root with Docker access."
+    exit 2
+}
+
 $script = @"
 import socket
 import sys

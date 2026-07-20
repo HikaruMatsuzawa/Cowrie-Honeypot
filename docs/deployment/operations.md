@@ -233,12 +233,18 @@ sudo docker compose exec -T cowrie /cowrie/cowrie-env/bin/python3 -c "print('ok'
 外向き通信制限を確認する。
 
 ```bash
-./scripts/verify_egress.sh
+sudo ./scripts/verify_egress.sh
 ```
 
 確認対象は `cowrie` 本体である。
 
 ## ログ分析
+
+Ubuntuで `ensurepip is not available` と表示される場合は、先に `.venv` 作成用パッケージを入れる。
+
+```bash
+sudo apt install -y python3-venv
+```
 
 ```bash
 python3 -m venv .venv

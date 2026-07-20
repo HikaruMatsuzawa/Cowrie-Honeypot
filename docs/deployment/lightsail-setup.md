@@ -600,7 +600,7 @@ sudo ss -ltnp
 作業場所: サーバーSSH
 
 ```bash
-./scripts/verify_egress.sh
+sudo ./scripts/verify_egress.sh
 ```
 
 正常な結果:
@@ -627,6 +627,12 @@ sudo docker compose down
 作業場所: サーバーSSH
 
 ログ分析をLightsail上でも実行する場合は、プロジェクト直下に `.venv` を作る。
+
+Ubuntuで `ensurepip is not available` と表示される場合は、先に `.venv` 作成用パッケージを入れる。
+
+```bash
+sudo apt install -y python3-venv
+```
 
 ```bash
 python3 -m venv .venv
@@ -683,7 +689,7 @@ git status --short
 sudo docker compose down
 sudo docker compose up -d
 sudo docker compose ps
-./scripts/verify_egress.sh
+sudo ./scripts/verify_egress.sh
 ```
 
 確認ポイント:

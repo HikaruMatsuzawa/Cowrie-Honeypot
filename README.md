@@ -129,7 +129,7 @@ Lightsail上の起動コマンドは次の形式です。
 cp .env.lightsail.example .env
 sudo docker compose config
 sudo docker compose up -d
-./scripts/verify_egress.sh
+sudo ./scripts/verify_egress.sh
 ```
 
 この操作はインターネットからTCP 22番へ到達できる構成を作るため、必ず [セキュリティ](docs/development/security.md) と [運用手順](docs/deployment/operations.md) を確認してから実行してください。
