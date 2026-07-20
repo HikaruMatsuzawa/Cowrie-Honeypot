@@ -438,7 +438,8 @@ sudo docker compose version
 作業場所: サーバーSSH
 
 ```bash
-git clone <PUBLIC_REPOSITORY_URL>
+# git clone <PUBLIC_REPOSITORY_URL>
+git clone https://github.com/HikaruMatsuzawa/Cowrie-Honeypot.git
 cd Cowrie-Honeypot
 ```
 
