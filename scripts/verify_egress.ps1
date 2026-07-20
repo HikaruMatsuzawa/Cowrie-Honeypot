@@ -2,7 +2,8 @@ param(
     [string]$Service = "cowrie",
     [string]$TargetHost = "1.1.1.1",
     [int]$TargetPort = 80,
-    [int]$TimeoutSeconds = 3
+    [int]$TimeoutSeconds = 3,
+    [string]$PythonPath = "/cowrie/cowrie-env/bin/python3"
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,7 +30,7 @@ finally:
     sock.close()
 "@
 
-$script | docker compose exec -T $Service python3 -
+$script | docker compose exec -T $Service $PythonPath -
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "OK: outbound connection was blocked."

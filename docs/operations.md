@@ -33,6 +33,8 @@ docker compose config
 
 この確認は，Cowrieコンテナ起動後に実行する．外部接続が拒否される場合を正常とする．外部接続が成功した場合は，Dockerネットワークまたはファイアウォール設定を見直す．
 
+ローカル構成では，Cowrie本体を内部ネットワークに配置し，`cowrie-ssh-proxy` が `127.0.0.1:2222` への接続をCowrieへ中継する．外向き通信確認の対象はCowrie本体とする．AWS向けにはホスト側のnftablesまたはiptablesによる制限も別途検証する．
+
 ### AWS
 
 AWSではEC2上にDocker Compose環境を作成する想定とする．デプロイはGitHub上の公開リポジトリをcloneして行う．CodexはAWS上で自動実行せず，人間が内容を確認して手動実行する．

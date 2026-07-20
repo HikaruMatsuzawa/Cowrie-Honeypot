@@ -20,6 +20,7 @@ cowrie-observer = "cowrie_observer.cli:main"
 [project.optional-dependencies]
 dev = [
   "mypy>=1.10",
+  "paramiko>=5.0",
   "pytest>=8.0",
   "ruff>=0.5"
 ]

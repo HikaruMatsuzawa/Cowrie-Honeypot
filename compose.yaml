@@ -3,8 +3,8 @@ services:
     image: ${COWRIE_IMAGE:-cowrie/cowrie:latest}
     container_name: cowrie-observer
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:${COWRIE_LOCAL_SSH_PORT:-2222}:2222"
+    expose:
+      - "2222"
     environment:
       TZ: ${TZ:-UTC}
     networks:
@@ -17,6 +17,20 @@ services:
         source: ./data/downloads
         target: /cowrie/cowrie-git/var/lib/cowrie/downloads
 
+  cowrie-ssh-proxy:
+    image: alpine/socat:latest
+    container_name: cowrie-ssh-proxy
+    restart: unless-stopped
+    depends_on:
+      - cowrie
+    command: "tcp-listen:2222,fork,reuseaddr tcp-connect:cowrie:2222"
+    ports:
+      - "127.0.0.1:${COWRIE_LOCAL_SSH_PORT:-2222}:2222"
+    networks:
+      - cowrie-net
+      - proxy-net
+
 networks:
   cowrie-net:
     internal: true
+  proxy-net:
