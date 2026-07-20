@@ -534,8 +534,8 @@ sudo docker compose logs --tail=50 cowrie
 
 ```bash
 sudo mkdir -p logs/cowrie data/downloads
-COWRIE_UID="$(sudo docker compose exec -T cowrie id -u)"
-COWRIE_GID="$(sudo docker compose exec -T cowrie id -g)"
+COWRIE_UID="$(sudo docker compose exec -T cowrie /cowrie/cowrie-env/bin/python3 -c 'import os; print(os.getuid())')"
+COWRIE_GID="$(sudo docker compose exec -T cowrie /cowrie/cowrie-env/bin/python3 -c 'import os; print(os.getgid())')"
 sudo chown -R "${COWRIE_UID}:${COWRIE_GID}" logs/cowrie data/downloads
 sudo docker compose restart cowrie
 ```
