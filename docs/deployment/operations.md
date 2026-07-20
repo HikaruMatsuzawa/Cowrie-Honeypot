@@ -390,10 +390,10 @@ Lightsail側で即時遮断する場合:
 | パス | 内容 | 注意 |
 | --- | --- | --- |
 | `logs/cowrie/*` | Cowrieの生ログ、JSONログ、TTYログ | 実IP、入力ユーザー名、入力パスワード、入力コマンドを含む |
-| `data/downloads/*` | Cowrieが実際に保存した取得物 | マルウェア疑いのファイルを含む可能性があるため、開かない、実行しない |
+| `data/downloads/*` | Cowrieが実際に保存したファイル転送・取得物 | マルウェア疑いのファイルを含む可能性があるため、開かない、実行しない |
 | `data/public/*` | `summary.csv` などの分析結果 | 削除後に分析コマンドで再生成する |
 
-`wget` や `curl` などの入力コマンドは `logs/cowrie/` に記録される。`data/downloads/` はコマンドから推測した一覧ではなく、Cowrieがファイルとして保存した取得物の置き場である。
+`wget` や `curl` などの入力コマンドは `logs/cowrie/` に記録される。`data/downloads/` はコマンドから推測した一覧ではなく、Cowrieがファイルとして保存したものの置き場である。このプロジェクトではCowrieコンテナの外向き通信を遮断するため、外部URLからのダウンロードは失敗し、保存されない想定である。
 
 注意: リセット後も、自分でSSHやTelnetの確認接続を行うと、その接続は再びCowrieログへ記録される。攻撃者ログだけを収集したい期間に入ったら、確認目的の接続は行わない。
 
@@ -422,11 +422,13 @@ sudo rm -rf data/public/*
 
 ```bash
 sudo mkdir -p logs/cowrie data/downloads data/public
-COWRIE_UID="$(sudo docker compose run --rm --no-deps cowrie /cowrie/cowrie-env/bin/python3 -c 'import os; print(os.getuid())')"
-COWRIE_GID="$(sudo docker compose run --rm --no-deps cowrie /cowrie/cowrie-env/bin/python3 -c 'import os; print(os.getgid())')"
+COWRIE_UID="$(sudo docker compose run --rm --no-deps --entrypoint /cowrie/cowrie-env/bin/python3 cowrie -c 'import os; print(os.getuid())')"
+COWRIE_GID="$(sudo docker compose run --rm --no-deps --entrypoint /cowrie/cowrie-env/bin/python3 cowrie -c 'import os; print(os.getgid())')"
 sudo chown -R "${COWRIE_UID}:${COWRIE_GID}" logs/cowrie data/downloads
 sudo chown -R "$USER:$USER" data/public
 ```
+
+`SyntaxError: source code cannot contain null bytes` が出た場合は、`--entrypoint /cowrie/cowrie-env/bin/python3` が抜けている。CowrieイメージのENTRYPOINTの影響でPythonバイナリを正しく実行できていない状態である。
 
 起動し直す。
 
