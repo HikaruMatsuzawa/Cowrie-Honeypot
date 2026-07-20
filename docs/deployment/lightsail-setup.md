@@ -534,11 +534,22 @@ ssh -p 22 root@<LIGHTSAIL_STATIC_IP>
 
 パスワードを聞かれたら、検証用に任意の文字列を入力してよい。Cowrieは観測用の模擬環境である。
 
+接続後、偽シェルで検証用コマンドを入力する。
+
+```bash
+whoami
+uname -a
+ls
+curl http://example.com
+exit
+```
+
 確認ポイント:
 
 - 接続先が本物の管理用OpenSSHではなくCowrieである。
 - 管理用ユーザー `ubuntu` の本物のシェルに入っていない。
 - 入力した内容がCowrieログに記録される。
+- `curl http://example.com` は名前解決や外向き通信に失敗してよい。Cowrie本体の外向き通信制限が効いていることを示す。
 
 サーバー側でログを確認する。
 
@@ -546,6 +557,25 @@ ssh -p 22 root@<LIGHTSAIL_STATIC_IP>
 ls -l logs/cowrie
 sudo docker compose logs --tail=50 cowrie
 ```
+
+正常なログ例:
+
+```text
+login attempt [b'testuser'/b'admin'] succeeded
+CMD: whoami
+CMD: uname -a
+CMD: ls
+CMD: curl http://example.com
+Attempt to access blocked network address
+```
+
+`testuser` や `admin` のようなユーザー名とパスワードは、Lightsail本体の実アカウントではなく、Cowrieが観測した偽SSH上の入力である。`testuser@svr04:~$` のような表示も、Cowrieが返している模擬シェルである。
+
+注意:
+
+- 現在の `cowrie-ssh-proxy` 構成では、Cowrieログ上の接続元IPが外部端末の実IPではなく、Docker内部のproxyコンテナIPとして記録される場合がある。
+- コマンド観測、認証試行観測、外向き通信制限の確認はできる。
+- 送信元IPを実攻撃元として分析する運用は、送信元IPを保持する設計を追加で確定してから行う。
 
 ## 14. 管理用OpenSSHが22番で公開されていないことを確認する
 
