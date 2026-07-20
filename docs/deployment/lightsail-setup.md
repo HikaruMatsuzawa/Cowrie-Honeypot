@@ -500,8 +500,8 @@ sudo docker compose config
 - `cowrie` が `0.0.0.0:22->2222/tcp` を公開する。
 - `cowrie-ssh-proxy` が構成に残っていない。
 - Dockerネットワークに固定サブネットが設定されている。
-- Cowrieネットワークが `internal: true` になっている。
-- Cowrieコンテナの外向き通信を追加で遮断するホスト側firewallの手順が準備されている。
+- Cowrieネットワークに固定サブネットが設定されている。
+- Cowrieコンテナの外向き通信を遮断するホスト側firewallの手順が準備されている。
 - `logs/cowrie/` と `data/downloads/` がホスト側へマウントされている。
 
 ## 12. Cowrieを起動する
@@ -560,7 +560,7 @@ sudo docker compose logs --tail=50 cowrie
 
 作業場所: サーバーSSH
 
-Cowrieコンテナは実送信元IPを記録するため、TCP 22番を直接受ける。CowrieはDocker internal networkに置く。Lightsailでは追加防御として、Dockerのユーザー定義ルール用chainである `DOCKER-USER` でも外向き通信を遮断する。
+Cowrieコンテナは実送信元IPを記録するため、TCP 22番を直接受ける。外向き通信制限は、Dockerのユーザー定義ルール用chainである `DOCKER-USER` で行う。
 
 ```bash
 sudo ./scripts/cowrie_egress_firewall.sh apply

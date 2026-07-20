@@ -20,7 +20,6 @@ services:
 
 networks:
   cowrie-net:
-    internal: true
     ipam:
       config:
         - subnet: ${COWRIE_NETWORK_SUBNET:-172.30.0.0/24}

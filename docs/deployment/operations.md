@@ -90,7 +90,7 @@ docker compose --env-file .env.lightsail.example config
 - 生ログ、`.env`、秘密鍵、実IP、AWS認証情報が差分に含まれていない。
 - Lightsail用環境変数では `cowrie` が `0.0.0.0:22` を公開する。
 - `cowrie-ssh-proxy` が構成に残っていない。
-- Docker internal network、固定サブネット、ホスト側firewallによる外向き通信制限の手順が確認できる。
+- Docker固定サブネットとホスト側firewallによる外向き通信制限の手順が確認できる。
 
 ## Lightsailインスタンス作成
 
@@ -219,7 +219,7 @@ sudo chown -R "${COWRIE_UID}:${COWRIE_GID}" logs/cowrie data/downloads
 sudo docker compose restart cowrie
 ```
 
-CowrieコンテナはDocker internal networkに置く。Lightsailでは追加防御として、Cowrieコンテナの外向き通信をホスト側firewallでも遮断する。
+Cowrieコンテナは実送信元IPを記録するため、TCP 22番を直接受ける。外向き通信制限はホスト側firewallで行う。
 
 ```bash
 sudo ./scripts/cowrie_egress_firewall.sh apply
