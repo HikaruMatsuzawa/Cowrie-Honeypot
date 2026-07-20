@@ -253,16 +253,35 @@ PermitRootLogin no
 sudo sshd -t
 ```
 
-エラーがなければOpenSSHを再読み込みする。
+エラーがなければOpenSSHを反映する。
+
+UbuntuのLightsailイメージでは、OpenSSHがsystemd socket activationで起動している場合がある。この場合、`Port`、`AddressFamily`、`ListenAddress` の変更は `ssh` サービスのreloadだけでは反映されない。
 
 ```bash
-sudo systemctl reload ssh
+sudo systemctl daemon-reload
+sudo systemctl restart ssh.socket
+sudo systemctl restart ssh
 ```
 
-もし `ssh` サービス名で失敗する場合は、サービス名を確認する。
+反映後、待ち受けポートを確認する。
+
+```bash
+sudo ss -ltnp | grep sshd
+```
+
+正常な結果:
+
+```text
+LISTEN ... 0.0.0.0:22222 ...
+LISTEN ... [::]:22222 ...
+```
+
+もしまだ `0.0.0.0:22` または `[::]:22` だけが表示される場合は、`sshd_config` の `Port 22222` が反映されていない。現在のSSHセッションは閉じずに、次を確認する。
 
 ```bash
 systemctl list-units --type=service | grep ssh
+systemctl list-units --type=socket | grep ssh
+sudo grep -R "^Port" /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf 2>/dev/null
 ```
 
 重要:
